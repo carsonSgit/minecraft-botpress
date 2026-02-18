@@ -6,7 +6,7 @@ const scriptPath = fileURLToPath(import.meta.url);
 const repoRoot = resolve(dirname(scriptPath), '..');
 const manifestPath = resolve(repoRoot, 'shared/command-whitelist.json');
 const bridgeOutputPath = resolve(repoRoot, 'bridge-server/src/generated/command-whitelist.ts');
-const javaOutputPath = resolve(repoRoot, 'src/client/java/com/botpress/command/GeneratedCommandWhitelist.java');
+const javaOutputPath = resolve(repoRoot, 'src/main/java/com/botpress/command/GeneratedCommandWhitelist.java');
 
 const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
 const commands = manifest.commands;

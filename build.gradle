@@ -14,7 +14,7 @@ base {
 }
 
 def commandManifestFile = file("shared/command-whitelist.json")
-def generatedJavaWhitelistFile = file("src/client/java/com/botpress/command/GeneratedCommandWhitelist.java")
+def generatedJavaWhitelistFile = file("src/main/java/com/botpress/command/GeneratedCommandWhitelist.java")
 
 tasks.register("generateCommandWhitelistJava") {
 	inputs.file(commandManifestFile)
@@ -73,7 +73,7 @@ tasks.register("generateCommandArtifacts", Exec) {
 
 tasks.register("checkCommandArtifacts", Exec) {
 	dependsOn(tasks.named("generateCommandArtifacts"))
-	commandLine "git", "diff", "--exit-code", "--", "bridge-server/src/generated/command-whitelist.ts", "src/client/java/com/botpress/command/GeneratedCommandWhitelist.java"
+	commandLine "git", "diff", "--exit-code", "--", "bridge-server/src/generated/command-whitelist.ts", "src/main/java/com/botpress/command/GeneratedCommandWhitelist.java"
 	ignoreExitValue = true
 
 	doLast {
