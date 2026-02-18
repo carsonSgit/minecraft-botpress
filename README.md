@@ -1,174 +1,354 @@
 # MineBot AI
 
-An AI assistant that lives inside Minecraft. Chat with it using `!ai` in-game to ask questions, run commands, build structures, and render pixel art — all powered by a Botpress AI agent.
+MineBot AI is a local stack that lets players use `!ai` inside Minecraft to chat, run safe commands, generate builds, and render pixel art.
 
-```
-Player types: !ai build a castle with towers
-MineBot:      [Step 1/3: Building the foundation...]
-              [Step 2/3: Adding walls and towers...]
-              [Step 3/3: Finishing the roof...]
-              [Done! Built a castle with 4 towers.]
-```
+It has three parts:
+- A Fabric client mod that intercepts `!ai` chat and executes validated responses in-game.
+- A TypeScript bridge server that talks to Botpress Chat API and enforces response safety.
+- A Botpress ADK agent that classifies intent into structured JSON.
 
-## Architecture
+## Quick Start
 
-```
-┌─────────────────┐       HTTP        ┌──────────────────┐    Botpress Chat API    ┌──────────────────┐
-│  Fabric Mod      │  ──────────────►  │  Bridge Server    │  ────────────────────►  │  ADK Agent        │
-│  (Minecraft)     │  ◄──────────────  │  (Express/TS)     │  ◄────────────────────  │  (Botpress Cloud) │
-│                  │    JSON response  │                   │     AI classification  │                   │
-│  - Chat intercept│                   │  - Rate limiting   │                        │  - Intent classify │
-│  - Command exec  │                   │  - Pixel art proc  │                        │  - Player memory   │
-│  - Builder engine│                   │  - Session mgmt    │                        │  - Minecraft KB    │
-└─────────────────┘                   └──────────────────┘                         └──────────────────┘
-```
-
-1. The **Fabric mod** intercepts `!ai` messages in chat and sends them to the bridge server over HTTP
-2. The **Bridge server** forwards the message to Botpress Cloud via direct Chat API REST calls (`fetch`) and waits for a reply
-3. The **ADK agent** classifies intent (chat, command, build, worldedit, pixelart) and returns structured JSON
-4. The bridge sends the response back to the mod, which executes the appropriate action in-game
-
-## Features
-
-- **Chat** — Ask Minecraft questions, get helpful answers in-game
-- **Commands** — "make it night", "give me diamonds", "kill all zombies"
-- **Building** — "build a stone house", "build a 10x10 platform"
-- **WorldEdit** — Complex multi-command builds with progress indicators and undo support
-- **Pixel Art** — Render images as Minecraft pixel art from a URL
-- **Player Memory** — Remembers preferences and build history per player
-
-## Prerequisites
-
-| Tool | Version | Install |
-|---|---|---|
-| Java (JDK) | 21+ | [Adoptium](https://adoptium.net/) |
-| Node.js | 18+ | [nodejs.org](https://nodejs.org/) |
-| Bun | latest | [bun.sh](https://bun.sh/) |
-| Botpress ADK CLI | latest | `npm install -g @botpress/adk` |
-| Botpress account | — | [botpress.com](https://botpress.com/) |
-| Minecraft | 1.21.11 | [minecraft.net](https://www.minecraft.net/) |
-
-## Setup
-
-### 1. Clone the repo
-
+1. Clone the repo:
 ```bash
 git clone https://github.com/carsonSgit/minecraft-botpress.git
 cd minecraft-botpress
 ```
-
-### 2. Bridge Server
-
-```bash
-cd bridge-server
-npm install
-cp .env.example .env
-```
-
-Edit `.env` and set your Botpress webhook ID:
-
-```
-BOTPRESS_WEBHOOK_ID=<your-webhook-id>
-PORT=3000
-```
-
-To find your webhook ID: in the [Botpress Dashboard](https://app.botpress.cloud/), open your bot, go to **Integrations > Chat**, and copy the webhook ID from the API URL (`https://chat.botpress.cloud/<this-part>`).
-
-Start the server:
-
-```bash
-npm run dev
-```
-
-### 3. ADK Agent
-
+2. Start the ADK agent:
 ```bash
 cd minebot-agent
 bun install
-```
-
-Log in to Botpress and start the dev server:
-
-```bash
 adk login
 adk dev
 ```
-
-The agent console will be available at `http://localhost:3001`. Make sure the agent is running before testing in-game.
-
-### 4. Fabric Mod (Minecraft)
-
-From the project root:
-
+3. Start the bridge server:
 ```bash
-./gradlew build
+cd ../bridge-server
+bun install
+cp .env.example .env
+bun run dev
 ```
-
-The built mod JAR will be in `build/libs/`. Copy it to your Minecraft `mods/` folder, or run the dev client directly:
-
+4. Run Minecraft with the mod from repo root:
 ```bash
 ./gradlew runClient
 ```
+Windows PowerShell:
+```powershell
+.\gradlew.bat runClient
+```
 
-This launches Minecraft with the mod loaded. Join any world (singleplayer or server) and type `!ai hello` in chat.
+Then use `!ai hello` in chat.
 
-## Usage
+## How It Works at a Glance
 
-| Command | What it does |
+1. The Fabric client catches `!ai` messages in chat.
+2. It sends player context to the bridge server (`POST /chat`).
+3. The bridge calls Botpress Chat API, gets the agent response, and validates it.
+4. The client executes the validated result in-game (chat, command, build, or worldedit sequence).
+
+## System Architecture
+
+```mermaid
+flowchart LR
+  subgraph MC["Minecraft Client (Fabric Mod)"]
+    P[Player]
+    CI["ChatInterceptor"]
+    HB["HttpBridge"]
+    CE["CommandExecutor"]
+    BE["BuilderEngine"]
+    OUT["In-game chat + command output"]
+
+    P -->|!ai ...| CI
+    CI -->|chat request| HB
+    CE --> OUT
+    BE --> OUT
+  end
+
+  subgraph BR["Bridge Server (Express + TypeScript)"]
+    RT["Routes: /chat /reset /health"]
+    ZR["Zod request schema"]
+    RL["Rate limiter"]
+    BS["Botpress service"]
+    SS["Session store + TTL + cap"]
+    VV["Response parser + validator"]
+    WL["Command/material whitelist"]
+    PX["Pixel art processor"]
+  end
+
+  subgraph BP["Botpress Cloud"]
+    API["Chat API"]
+    AG["ADK conversation handler"]
+    MEM["Player memory tables"]
+    KB["Knowledge assets (project files)"]
+  end
+
+  HB -->|POST /chat| RT
+  CI -.->|!ai reset -> POST /reset/:playerUUID| HB
+  HB -.->|POST /reset/:playerUUID| RT
+
+  RT --> ZR --> RL --> BS
+  BS <--> SS
+  BS -->|/users /conversations /messages| API
+  API --> AG
+  AG --> MEM
+  AG -.->|project knowledge assets| KB
+  AG -->|JSON action in text payload| API
+  API --> BS
+
+  BS --> VV
+  VV --> WL
+  VV -->|type=pixelart| PX
+  PX -->|converted worldedit commands| RT
+  VV -->|chat/command/build/worldedit/error| RT
+
+  RT -->|validated JSON response| HB
+  HB -->|type=chat| OUT
+  HB -->|type=command or worldedit| CE
+  HB -->|type=build| BE
+```
+
+Path map:
+- Fabric mod:
+- `src/client/java/com/botpress/chat/ChatInterceptor.java`
+- `src/client/java/com/botpress/network/HttpBridge.java`
+- `src/client/java/com/botpress/command/CommandExecutor.java`
+- `src/client/java/com/botpress/build/BuilderEngine.java`
+- Bridge server:
+- `bridge-server/src/index.ts`
+- `bridge-server/src/types.ts`
+- `bridge-server/src/rate-limiter.ts`
+- `bridge-server/src/botpress-service.ts`
+- `bridge-server/src/validator.ts`
+- `bridge-server/src/whitelist.ts`
+- `bridge-server/src/pixel-art.ts`
+- ADK agent:
+- `minebot-agent/src/conversations/index.ts`
+- `minebot-agent/src/tables/player-prefs.ts`
+- `minebot-agent/src/tables/build-history.ts`
+- `minebot-agent/src/knowledge/minecraft-kb.ts`
+
+## Request/Response Flow
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant Player
+  participant Mod as Fabric Mod
+  participant Bridge as Bridge Server
+  participant ChatAPI as Botpress Chat API
+  participant Agent as ADK Agent
+
+  Player->>Mod: !ai <message>
+  Mod->>Bridge: POST /chat
+  Note over Bridge: Validate request + rate limit
+  Bridge->>ChatAPI: Send player message
+  ChatAPI->>Agent: Run conversation handler
+  Agent-->>ChatAPI: JSON action payload
+  loop Poll for new bot reply
+    Bridge->>ChatAPI: Get conversation messages
+    ChatAPI-->>Bridge: Latest bot message
+  end
+  Bridge->>Bridge: Parse + validate action
+  alt type == pixelart
+    Bridge->>Bridge: Convert image to worldedit commands
+    Bridge-->>Mod: worldedit
+  else type == chat|command|build|worldedit|error
+    Bridge-->>Mod: Validated action
+  end
+  Mod->>Mod: Execute or display result
+```
+
+## Command Safety and Artifact Flow
+
+```mermaid
+flowchart LR
+  M[Manifest]
+  TG[TS Generator]
+  JG[Java Generator]
+  TA[TS Artifact]
+  JA[Java Build Artifact]
+  BV[Bridge Validation]
+  CV[Client Validation]
+  CI[CI Artifact Check]
+
+  M --> TG --> TA --> BV
+  M --> JG --> JA --> CV
+  M --> CI
+  TA --> CI
+  JA --> CI
+```
+
+Path map:
+- Manifest: `shared/command-whitelist.json`
+- TS generator: `scripts/generate-command-artifacts.mjs`
+- Java generator task: `build.gradle` (`generateCommandWhitelistJava`)
+- TS artifact (tracked): `bridge-server/src/generated/command-whitelist.ts`
+- Java build artifact (not tracked): `build/generated/sources/commandWhitelist/java/main/com/botpress/command/GeneratedCommandWhitelist.java`
+- Runtime validation: `bridge-server/src/validator.ts`, `bridge-server/src/whitelist.ts`, `src/main/java/com/botpress/command/CommandValidation.java`
+- CI check: `./gradlew checkCommandArtifacts`
+
+## Public Bridge Interface
+
+### Endpoints
+
+| Method | Path | Purpose |
+|---|---|---|
+| `GET` | `/health` | Health and cleanup stats |
+| `POST` | `/chat` | Main AI request/response endpoint |
+| `POST` | `/reset/:playerUUID` | Clear one player session |
+| `POST` | `/reset-all` | Clear all sessions |
+
+Defined in `bridge-server/src/index.ts`.
+
+### `POST /chat` Request
+
+Defined by `ChatRequestSchema` in `bridge-server/src/types.ts`.
+
+| Field | Type | Required |
+|---|---|---|
+| `playerName` | `string` | Yes |
+| `playerUUID` | `string` | Yes |
+| `message` | `string` (1-500 chars) | Yes |
+| `playerX` | `int` | No |
+| `playerY` | `int` | No |
+| `playerZ` | `int` | No |
+
+### `POST /chat` Response Types
+
+Defined by `ChatResponseSchema` in `bridge-server/src/types.ts`.
+
+| `type` | Payload |
 |---|---|
-| `!ai <message>` | Send a message to the AI |
-| `!ai help` | Show available commands |
-| `!ai reset` | Clear conversation history |
-| `!ai make it night` | Runs `/time set night` |
-| `!ai give me 64 diamonds` | Runs `/give @s diamond 64` |
-| `!ai build a stone house` | Builds a house near you |
-| `!ai build a castle` | Multi-step WorldEdit build with progress |
-| `!ai undo` | Undoes the last build |
-| `!ai render pixel art of <url>` | Renders an image as blocks |
+| `chat` | `text` |
+| `command` | `command` |
+| `build` | `structure`, `width`, `height`, `depth`, `material` |
+| `worldedit` | `description`, `commands[]`, optional `strictMode` |
+| `pixelart` | `url`, optional `size` (bridge converts this into `worldedit` before returning to mod) |
+| `error` | `text` |
 
-## Updating the command whitelist
+## Runtime Behavior
 
-Allowed commands are defined in `shared/command-whitelist.json` and consumed by both the bridge server and Fabric mod through generated artifacts.
+### Cooldown and Rate Limiting
 
-1. Edit `shared/command-whitelist.json` and add/remove entries in `commands`.
-2. Regenerate artifacts:
-   ```bash
-   ./gradlew generateCommandArtifacts
-   ```
-3. Commit the manifest plus generated files:
-   - `bridge-server/src/generated/command-whitelist.ts`
-   - `src/client/java/com/botpress/command/GeneratedCommandWhitelist.java`
+- Client-side cooldown is enforced in `src/client/java/com/botpress/chat/ChatInterceptor.java` (`2s` between `!ai` requests).
+- Bridge-side cooldown is enforced in `bridge-server/src/rate-limiter.ts` (`2s` per player UUID, plus TTL cleanup).
 
-CI runs `./gradlew checkCommandArtifacts` and fails if generated artifacts are stale.
+### Session Lifecycle
 
-## Project Structure
+- Bridge session state is managed in `bridge-server/src/botpress-service.ts` using `SESSION_TTL_MS` and `MAX_SESSIONS`.
 
+### Pixel Art Conversion
+
+- The agent can return `type: "pixelart"`.
+- The bridge processes the image in `bridge-server/src/pixel-art.ts` and converts it into `worldedit` commands before returning to the client.
+
+### Strict vs Non-Strict WorldEdit
+
+- Sequence validation runs in `src/client/java/com/botpress/command/CommandExecutor.java`.
+- `strictMode=true`: abort on first invalid command.
+- `strictMode=false`: skip invalid commands and continue; abort only if no valid commands remain.
+
+## Setup and Configuration
+
+### Prerequisites
+
+| Tool | Version |
+|---|---|
+| Java (JDK) | 21+ |
+| Bun | latest |
+| Node.js | 20+ recommended (used by Gradle artifact generation script) |
+| Botpress ADK CLI | latest (`npm install -g @botpress/adk`) |
+| Minecraft | 1.21.11 |
+
+### Bridge Server Environment
+
+Copy `bridge-server/.env.example` to `bridge-server/.env` and set:
+
+```env
+BOTPRESS_WEBHOOK_ID=your-webhook-id-here
+PORT=3000
+SESSION_TTL_MS=1800000
+RATE_LIMIT_TTL_MS=300000
+MAX_SESSIONS=10000
 ```
-├── src/client/java/com/botpress/   # Fabric mod (Java)
-│   ├── chat/ChatInterceptor.java   #   !ai message interception
-│   ├── network/HttpBridge.java     #   HTTP client to bridge server
-│   ├── command/CommandExecutor.java #   Whitelisted command execution
-│   └── build/BuilderEngine.java    #   Simple structure builder
-├── bridge-server/                  # Bridge server (TypeScript)
-│   └── src/
-│       ├── index.ts                #   Express routes
-│       ├── botpress-service.ts     #   Botpress Chat API REST client (fetch)
-│       ├── pixel-art.ts            #   Image-to-setblock converter
-│       ├── rate-limiter.ts         #   Per-player rate limiting
-│       ├── validator.ts            #   Response parsing/validation
-│       └── whitelist.ts            #   Command whitelist
-└── minebot-agent/                  # Botpress ADK agent
-    └── src/
-        ├── conversations/index.ts  #   Intent classification handler
-        ├── tables/                 #   Player prefs & build history
-        └── knowledge/              #   Minecraft knowledge base
+
+The ADK chat integration dependency is enabled in `minebot-agent/agent.config.ts` (`chat@0.7.5`).
+
+### Build and Run Commands
+
+- Fabric mod build: `./gradlew build`
+- Fabric dev client: `./gradlew runClient`
+- Regenerate command artifacts: `./gradlew generateCommandArtifacts`
+- Check artifact freshness (used in CI): `./gradlew checkCommandArtifacts`
+- Bridge dev server: `cd bridge-server && bun run dev`
+- Agent dev server: `cd minebot-agent && bun run dev`
+- Agent deploy: `cd minebot-agent && bun run deploy`
+
+## Command Whitelist Maintenance
+
+1. Edit `shared/command-whitelist.json`.
+2. Run:
+```bash
+./gradlew generateCommandArtifacts
+```
+3. Commit:
+- `shared/command-whitelist.json`
+- `bridge-server/src/generated/command-whitelist.ts`
+
+Do not commit `build/generated/.../GeneratedCommandWhitelist.java`; it is generated during build.
+
+## Repository Map
+
+```text
+src/client/java/com/botpress/
+  chat/ChatInterceptor.java
+  network/HttpBridge.java
+  command/CommandExecutor.java
+  build/BuilderEngine.java
+
+src/main/java/com/botpress/
+  command/CommandValidation.java
+
+bridge-server/src/
+  index.ts
+  botpress-service.ts
+  validator.ts
+  whitelist.ts
+  pixel-art.ts
+  rate-limiter.ts
+  types.ts
+  generated/command-whitelist.ts
+
+minebot-agent/src/
+  conversations/index.ts
+  tables/player-prefs.ts
+  tables/build-history.ts
+  knowledge/minecraft-kb.ts
+  knowledge/minecraft/*.md
+  actions/index.ts (scaffold placeholder)
+  workflows/index.ts (scaffold placeholder)
+  triggers/index.ts (scaffold placeholder)
 ```
 
-## Tech Stack
+## In-Game Usage
 
-- **Minecraft Mod**: Java 21, Fabric API 0.141.3, Minecraft 1.21.11
-- **Bridge Server**: Node.js, Express, TypeScript, Sharp (pixel art)
-- **AI Agent**: Botpress ADK, `@botpress/runtime`
+- `!ai <message>` asks MineBot to classify and respond.
+- `!ai help` shows usage examples from the client mod.
+- `!ai reset` clears the player's bridge session.
+
+## Truth Guarantees
+
+- This README is grounded in current source paths and runtime behavior.
+- If a statement here conflicts with code, code is the source of truth.
+- Key behavioral sections map directly to:
+- `src/client/java/com/botpress/chat/ChatInterceptor.java`
+- `src/client/java/com/botpress/network/HttpBridge.java`
+- `src/client/java/com/botpress/command/CommandExecutor.java`
+- `bridge-server/src/index.ts`
+- `bridge-server/src/types.ts`
+- `bridge-server/src/validator.ts`
+- `bridge-server/src/botpress-service.ts`
+- `minebot-agent/src/conversations/index.ts`
 
 ## License
 
