@@ -2,7 +2,7 @@ import "dotenv/config";
 import express from "express";
 import { ChatRequestSchema } from "./types.js";
 import { isRateLimited } from "./rate-limiter.js";
-import { sendAndWaitForReply } from "./botpress-service.js";
+import { sendAndWaitForReply, clearSession, clearAllSessions } from "./botpress-service.js";
 import { parseAndValidate } from "./validator.js";
 
 const app = express();
@@ -21,6 +21,7 @@ app.get("/health", (_req, res) => {
 });
 
 app.post("/chat", async (req, res) => {
+  const startTime = Date.now();
   const parsed = ChatRequestSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({
@@ -31,8 +32,10 @@ app.post("/chat", async (req, res) => {
   }
 
   const { playerName, playerUUID, message } = parsed.data;
+  console.log(`[${new Date().toISOString()}] POST /chat from ${playerName} (${playerUUID}): "${message}"`);
 
   if (isRateLimited(playerUUID)) {
+    console.log(`[${new Date().toISOString()}] Rate limited: ${playerUUID}`);
     res.json({ type: "error", text: "Please wait before sending another message." });
     return;
   }
@@ -41,14 +44,30 @@ app.post("/chat", async (req, res) => {
     const contextMessage = `[Player: ${playerName}] ${message}`;
     const rawReply = await sendAndWaitForReply(WEBHOOK_ID!, playerUUID, contextMessage);
     const response = parseAndValidate(rawReply);
+    const duration = Date.now() - startTime;
+    console.log(`[${new Date().toISOString()}] Response (${duration}ms): type=${response.type}`);
     res.json(response);
   } catch (err) {
-    console.error("Chat error:", err);
+    const duration = Date.now() - startTime;
+    console.error(`[${new Date().toISOString()}] Chat error (${duration}ms):`, err);
     res.json({
       type: "error",
       text: "Failed to get AI response. Please try again.",
     });
   }
+});
+
+app.post("/reset/:playerUUID", (req, res) => {
+  const { playerUUID } = req.params;
+  const cleared = clearSession(playerUUID);
+  console.log(`[${new Date().toISOString()}] POST /reset/${playerUUID} - cleared: ${cleared}`);
+  res.json({ status: "ok", cleared });
+});
+
+app.post("/reset-all", (_req, res) => {
+  const count = clearAllSessions();
+  console.log(`[${new Date().toISOString()}] POST /reset-all - cleared ${count} sessions`);
+  res.json({ status: "ok", cleared: count });
 });
 
 app.listen(PORT, () => {

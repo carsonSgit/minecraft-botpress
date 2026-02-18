@@ -3,7 +3,7 @@ import { Autonomous, Conversation, z } from "@botpress/runtime";
 const ChatExit = new Autonomous.Exit({
   name: "chat",
   description:
-    "Use this exit when the player is asking a general question, having a conversation, or requesting information that does NOT involve a Minecraft command or building a structure.",
+    "Use this exit when the player is asking a general question, having a conversation, or requesting information that does NOT involve a Minecraft command, building a structure, or WorldEdit operations.",
   schema: z.object({
     text: z
       .string()
@@ -14,12 +14,12 @@ const ChatExit = new Autonomous.Exit({
 const CommandExit = new Autonomous.Exit({
   name: "command",
   description:
-    "Use this exit when the player wants to execute a Minecraft game command. Only these commands are allowed: time, weather, give, tp, gamemode, difficulty, effect. Do NOT include a leading slash.",
+    "Use this exit when the player wants to execute a single Minecraft game command. Allowed commands: time, weather, give, tp, gamemode, difficulty, effect, kill, clear, summon, setblock, fill, clone, enchant, xp, spawnpoint, setworldspawn, playsound, title, tellraw, particle, locate. Do NOT include a leading slash.",
   schema: z.object({
     command: z
       .string()
       .describe(
-        'The Minecraft command to execute, without leading slash. Examples: "time set day", "weather rain", "give @s diamond 64", "gamemode creative", "effect give @s speed 60 1"',
+        'The Minecraft command to execute, without leading slash. Examples: "time set day", "weather rain", "give @s diamond 64", "gamemode creative", "effect give @s speed 60 1", "summon creeper", "kill @e[type=zombie]", "fill ~0 ~-1 ~0 ~10 ~-1 ~10 stone", "setblock ~ ~1 ~ torch"',
       ),
   }),
 });
@@ -27,7 +27,7 @@ const CommandExit = new Autonomous.Exit({
 const BuildExit = new Autonomous.Exit({
   name: "build",
   description:
-    "Use this exit when the player wants to build or construct a structure in the world. Available structures: cube, house, tower, platform.",
+    "Use this exit when the player wants to build a simple predefined structure (cube, house, tower, platform). For complex or custom builds, use the worldedit exit instead.",
   schema: z.object({
     structure: z
       .enum(["cube", "house", "tower", "platform"])
@@ -58,14 +58,32 @@ const BuildExit = new Autonomous.Exit({
   }),
 });
 
+const WorldEditExit = new Autonomous.Exit({
+  name: "worldedit",
+  description:
+    "Use this exit when the player wants to perform complex building operations, WorldEdit commands, pixel art, logos, or any multi-command building task. Returns a sequence of commands to execute.",
+  schema: z.object({
+    description: z
+      .string()
+      .describe("A short human-readable description of what the commands will do"),
+    commands: z
+      .array(z.string())
+      .min(1)
+      .max(200)
+      .describe(
+        'Array of commands to execute in sequence. Use // prefix for WorldEdit commands (e.g. "//set stone"). Use vanilla commands without slash (e.g. "setblock ~1 ~0 ~0 red_concrete"). Commands are executed 150ms apart.',
+      ),
+  }),
+});
+
 const INSTRUCTIONS = `You are MineBot, a helpful Minecraft AI assistant that lives inside the game.
-Your job is to classify player intent and respond appropriately.
+Your job is to classify player intent and respond with one of four action types.
 
-## Rules
+## Classification (pick the MOST specific match)
 
-1. **Chat**: For general questions, greetings, help requests, or conversation, use the "chat" exit.
+1. **Chat** - General questions, greetings, help, conversation, anything not involving commands or building.
 
-2. **Commands**: For game commands, use the "command" exit. Only these base commands are allowed:
+2. **Command** - Player wants a single Minecraft command executed. Allowed vanilla commands:
    - time (e.g. "time set day", "time set 0")
    - weather (e.g. "weather clear", "weather rain")
    - give (e.g. "give @s diamond 64", "give @s iron_sword 1")
@@ -73,17 +91,36 @@ Your job is to classify player intent and respond appropriately.
    - gamemode (e.g. "gamemode creative", "gamemode survival")
    - difficulty (e.g. "difficulty peaceful", "difficulty hard")
    - effect (e.g. "effect give @s speed 60 1")
+   - kill (e.g. "kill @e[type=zombie]")
+   - clear (e.g. "clear @s")
+   - summon (e.g. "summon creeper ~ ~ ~")
+   - setblock (e.g. "setblock ~ ~1 ~ torch")
+   - fill (e.g. "fill ~0 ~-1 ~0 ~10 ~-1 ~10 stone")
+   - clone, enchant, xp, spawnpoint, setworldspawn, playsound, title, tellraw, particle, locate
 
-   Do NOT include a leading slash. The player reference is always @s (self).
+   Do NOT include a leading slash. Player reference is @s (self).
 
-3. **Build**: For building or construction requests, use the "build" exit. Available structures:
-   - cube: A solid box of blocks
-   - house: A hollow structure with walls, roof, and a door opening
-   - tower: A tall hollow structure with a door opening
-   - platform: A flat single-layer surface
+3. **Build** - Player wants a simple predefined structure (cube, house, tower, platform) with a material. Use reasonable defaults if dimensions not specified.
 
-   Use reasonable defaults for dimensions if the player doesn't specify (7x5x7 for house, 5x10x5 for tower, 3x3x3 for cube, 10x1x10 for platform).
-   Material should be a valid Minecraft block ID without "minecraft:" prefix.
+4. **WorldEdit** - Player wants complex builds, pixel art, logos, terrain editing, or multi-command sequences. Use this for:
+   - Any request involving WorldEdit operations (//set, //replace, //walls, //copy, //paste, etc.)
+   - Pixel art or logo building (use setblock commands with colored concrete)
+   - Any build that requires multiple commands in sequence
+
+   ### WorldEdit command format
+   - Use "//" prefix for WorldEdit commands: "//set stone", "//replace dirt stone", "//walls oak_planks"
+   - Use vanilla commands without slash: "setblock ~1 ~0 ~0 red_concrete"
+   - Maximum 200 commands per sequence
+   - Commands execute 150ms apart
+
+   ### Botpress Logo (pixel art)
+   When asked to build a Botpress logo, use setblock commands with colored concrete blocks on a ~15x15 grid.
+   Use white_concrete for the background, blue_concrete for the main icon shape, and light_blue_concrete for accents.
+   Place blocks relative to player position using ~ coordinates. Build on a vertical plane (~X ~Y ~0).
+
+   ### Available colored blocks
+   All 16 colors of concrete: white_concrete, orange_concrete, magenta_concrete, light_blue_concrete, yellow_concrete, lime_concrete, pink_concrete, gray_concrete, light_gray_concrete, cyan_concrete, purple_concrete, blue_concrete, brown_concrete, green_concrete, red_concrete, black_concrete
+   All 16 colors of wool: same color prefixes with _wool suffix.
 
 ## Important
 - Be concise in chat responses.
@@ -96,7 +133,7 @@ export default new Conversation({
   handler: async ({ execute, conversation }) => {
     const result = await execute({
       instructions: INSTRUCTIONS,
-      exits: [ChatExit, CommandExit, BuildExit],
+      exits: [ChatExit, CommandExit, BuildExit, WorldEditExit],
       mode: "worker",
       iterations: 5,
     });
@@ -115,6 +152,12 @@ export default new Conversation({
         height: result.output.height,
         depth: result.output.depth,
         material: result.output.material,
+      };
+    } else if (result.is(WorldEditExit)) {
+      response = {
+        type: "worldedit",
+        description: result.output.description,
+        commands: result.output.commands,
       };
     } else {
       response = { type: "chat", text: "I'm not sure how to help with that." };
