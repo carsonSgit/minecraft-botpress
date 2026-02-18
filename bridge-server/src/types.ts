@@ -26,6 +26,11 @@ export const ChatResponseSchema = z.discriminatedUnion("type", [
     material: z.string(),
   }),
   z.object({
+    type: z.literal("worldedit"),
+    description: z.string(),
+    commands: z.array(z.string()).min(1).max(200),
+  }),
+  z.object({
     type: z.literal("error"),
     text: z.string(),
   }),

@@ -44,5 +44,19 @@ export function parseAndValidate(rawText: string): ChatResponse {
     }
   }
 
+  if (response.type === "worldedit") {
+    for (const cmd of response.commands) {
+      if (!isCommandWhitelisted(cmd)) {
+        const base = cmd.trim().startsWith("//")
+          ? "//" + cmd.trim().substring(2).split(/\s+/)[0]
+          : cmd.trim().split(/\s+/)[0];
+        return {
+          type: "error",
+          text: `Command not allowed: ${base}`,
+        };
+      }
+    }
+  }
+
   return response;
 }
