@@ -126,6 +126,21 @@ This launches Minecraft with the mod loaded. Join any world (singleplayer or ser
 | `!ai undo` | Undoes the last build |
 | `!ai render pixel art of <url>` | Renders an image as blocks |
 
+## Updating the command whitelist
+
+Allowed commands are defined in `shared/command-whitelist.json` and consumed by both the bridge server and Fabric mod through generated artifacts.
+
+1. Edit `shared/command-whitelist.json` and add/remove entries in `commands`.
+2. Regenerate artifacts:
+   ```bash
+   ./gradlew generateCommandArtifacts
+   ```
+3. Commit the manifest plus generated files:
+   - `bridge-server/src/generated/command-whitelist.ts`
+   - `src/client/java/com/botpress/command/GeneratedCommandWhitelist.java`
+
+CI runs `./gradlew checkCommandArtifacts` and fails if generated artifacts are stale.
+
 ## Project Structure
 
 ```

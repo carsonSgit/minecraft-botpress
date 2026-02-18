@@ -5,23 +5,11 @@ import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 public class CommandExecutor {
-	private static final Set<String> WHITELISTED_COMMANDS = Set.of(
-			// Vanilla
-			"time", "weather", "give", "tp", "gamemode", "difficulty", "effect", "kill", "clear", "summon", "setblock",
-			"fill", "clone", "enchant", "xp", "spawnpoint", "setworldspawn", "playsound", "title", "tellraw",
-			"particle", "locate",
-			// WorldEdit
-			"//set", "//replace", "//walls", "//outline", "//hollow", "//copy", "//paste", "//cut", "//rotate",
-			"//flip", "//stack", "//move", "//undo", "//redo", "//pos1", "//pos2", "//hpos1", "//hpos2", "//expand",
-			"//contract", "//shift", "//cyl", "//hcyl", "//sphere", "//hsphere", "//pyramid", "//hpyramid", "//wand",
-			"//sel", "//line", "//curve", "//drain", "//regen");
-
 	private static final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
 		Thread t = new Thread(r, "MineBot-CmdScheduler");
 		t.setDaemon(true);
@@ -40,7 +28,7 @@ public class CommandExecutor {
 			baseCommand = trimmed.split("\\s+")[0];
 		}
 
-		if (!WHITELISTED_COMMANDS.contains(baseCommand)) {
+		if (!GeneratedCommandWhitelist.WHITELISTED_COMMANDS.contains(baseCommand)) {
 			client.execute(() -> {
 				if (client.player != null) {
 					client.player.sendMessage(
