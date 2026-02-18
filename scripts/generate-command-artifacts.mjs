@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -6,7 +6,6 @@ const scriptPath = fileURLToPath(import.meta.url);
 const repoRoot = resolve(dirname(scriptPath), '..');
 const manifestPath = resolve(repoRoot, 'shared/command-whitelist.json');
 const bridgeOutputPath = resolve(repoRoot, 'bridge-server/src/generated/command-whitelist.ts');
-const javaOutputPath = resolve(repoRoot, 'src/main/java/com/botpress/command/GeneratedCommandWhitelist.java');
 
 const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
 const commands = manifest.commands;
@@ -31,24 +30,7 @@ ${bridgeEntries}
 ] as const;
 `;
 
-const javaList = sortedCommands.map((cmd) => `\t\t\t"${cmd}"`).join(',\n');
-const javaContent = `package com.botpress.command;
-
-import java.util.Set;
-
-// AUTO-GENERATED FILE. DO NOT EDIT.
-// Source: shared/command-whitelist.json
-public final class GeneratedCommandWhitelist {
-\tprivate GeneratedCommandWhitelist() {
-\t}
-
-\tpublic static final Set<String> WHITELISTED_COMMANDS = Set.of(
-${javaList}
-\t);
-}
-`;
-
+mkdirSync(dirname(bridgeOutputPath), { recursive: true });
 writeFileSync(bridgeOutputPath, bridgeContent);
-writeFileSync(javaOutputPath, javaContent);
 
 console.log('Generated command whitelist artifacts.');
