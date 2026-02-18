@@ -159,6 +159,7 @@ jar {
 spotless {
 	java {
 		target 'src/*/java/**/*.java'
+		targetExclude 'src/main/java/com/botpress/command/GeneratedCommandWhitelist.java'
 		eclipse()
 		removeUnusedImports()
 		trimTrailingWhitespace()
