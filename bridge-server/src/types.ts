@@ -32,6 +32,7 @@ export const ChatResponseSchema = z.discriminatedUnion("type", [
     type: z.literal("worldedit"),
     description: z.string(),
     commands: z.array(z.string()).min(1).max(500),
+    strictMode: z.boolean().optional(),
   }),
   z.object({
     type: z.literal("pixelart"),
