@@ -4,6 +4,7 @@ import { ChatRequestSchema } from "./types.js";
 import { isRateLimited } from "./rate-limiter.js";
 import { sendAndWaitForReply, clearSession, clearAllSessions } from "./botpress-service.js";
 import { parseAndValidate } from "./validator.js";
+import { processPixelArt } from "./pixel-art.js";
 
 const app = express();
 app.use(express.json());
@@ -43,7 +44,26 @@ app.post("/chat", async (req, res) => {
   try {
     const contextMessage = `[Player: ${playerName}] ${message}`;
     const rawReply = await sendAndWaitForReply(WEBHOOK_ID!, playerUUID, contextMessage);
+    console.log(`[${new Date().toISOString()}] Raw reply: ${rawReply}`);
     const response = parseAndValidate(rawReply);
+
+    // Convert pixelart → worldedit on the bridge side (mod sees standard worldedit)
+    if (response.type === "pixelart") {
+      const { playerX, playerY, playerZ } = parsed.data;
+      console.log(`[${new Date().toISOString()}] Processing pixel art: ${response.url}`);
+      const result = await processPixelArt(
+        response.url,
+        playerX ?? 0,
+        playerY ?? 64,
+        playerZ ?? 0,
+        500
+      );
+      const duration = Date.now() - startTime;
+      console.log(`[${new Date().toISOString()}] Pixel art done (${duration}ms): ${result.commands.length} commands`);
+      res.json({ type: "worldedit", description: result.description, commands: result.commands });
+      return;
+    }
+
     const duration = Date.now() - startTime;
     console.log(`[${new Date().toISOString()}] Response (${duration}ms): type=${response.type}`);
     res.json(response);
