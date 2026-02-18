@@ -8,10 +8,10 @@
     "build": "tsc",
     "start": "bun dist/index.js",
     "check": "biome check --config-path=.. .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "npm run build --silent && node --test dist/**/*.test.js"
   },
   "dependencies": {
-    "@botpress/chat": "^0.2.1",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "sharp": "^0.34.5",

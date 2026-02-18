@@ -55,6 +55,12 @@ const ResponseSchema = z.object({
     .describe(
       "Required for worldedit type: a short human-readable description of what the commands will do",
     ),
+  strictMode: z
+    .boolean()
+    .optional()
+    .describe(
+      "Optional for worldedit type: true for destructive/high-risk command sequences requiring stricter safeguards",
+    ),
   commands: z
     .array(z.string())
     .optional()
@@ -134,6 +140,13 @@ You have access to Minecraft knowledge about crafting, mobs, and building.
    - The commandCount from build history tells you how many //undo commands to issue
    - Example: if last build used 50 commands, generate 50 //undo commands
    - If no history is available, generate a reasonable number (e.g. 10) of //undo commands
+
+   ### strictMode (optional)
+   Include strictMode: true for destructive or high-risk command sequences where extra safeguards are appropriate, such as:
+   - Large-area replacements, clears, or terrain wipes
+   - Potentially irreversible edits near existing builds
+   - Complex multi-step operations where accidental placement/removal would be costly
+   Leave strictMode unset for routine, low-risk edits.
 
 5. **pixelart** - Player wants to render an image as Minecraft pixel art. Use this for:
    - "render pixel art of [url]", "make pixel art from [url]"
@@ -309,13 +322,20 @@ Classify this player message and generate the appropriate structured response.`;
         summary = `Built ${result.structure ?? "cube"} (${result.material ?? "stone"})`;
         break;
       case "worldedit":
+        {
+          const commands = (result.commands ?? [])
+            .map((command) => command.trim())
+            .filter(Boolean)
+            .slice(0, 500);
         response = {
           type: "worldedit",
           description: result.description ?? "Building...",
-          commands: result.commands ?? [],
+          ...(result.strictMode !== undefined ? { strictMode: result.strictMode } : {}),
+          commands,
         };
         summary = result.description ?? "WorldEdit sequence";
-        cmdCount = (result.commands ?? []).length;
+          cmdCount = commands.length;
+        }
         break;
       case "pixelart":
         response = {

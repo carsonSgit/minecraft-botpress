@@ -21,8 +21,30 @@ jobs:
         with:
           java-version: "21"
           distribution: "temurin"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
       - uses: gradle/actions/setup-gradle@v4
+      - name: Verify no BOM in Gradle scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t files < <(find . -type f \( -name "*.gradle" -o -name "*.gradle.kts" \))
+          offenders=()
+          for file in "${files[@]}"; do
+            header=$(od -An -t x1 -N 3 "$file" | tr -d '[:space:]')
+            if [[ "$header" == "efbbbf" ]]; then
+              offenders+=("$file")
+            fi
+          done
+          if (( ${#offenders[@]} > 0 )); then
+            echo "UTF-8 BOM detected in Gradle file(s):"
+            printf '%s\n' "${offenders[@]}"
+            echo "Remove BOM (EF BB BF) and commit again."
+            exit 1
+          fi
       - run: chmod +x ./gradlew
+      - run: ./gradlew checkCommandArtifacts
       - run: ./gradlew spotlessCheck
       - run: ./gradlew build
       - uses: actions/upload-artifact@v4
