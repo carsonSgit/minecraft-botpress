@@ -1,7 +1,9 @@
 import { readFileSync, writeFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const repoRoot = resolve(new URL('..', import.meta.url).pathname);
+const scriptPath = fileURLToPath(import.meta.url);
+const repoRoot = resolve(dirname(scriptPath), '..');
 const manifestPath = resolve(repoRoot, 'shared/command-whitelist.json');
 const bridgeOutputPath = resolve(repoRoot, 'bridge-server/src/generated/command-whitelist.ts');
 const javaOutputPath = resolve(repoRoot, 'src/client/java/com/botpress/command/GeneratedCommandWhitelist.java');
