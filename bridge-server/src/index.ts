@@ -1,8 +1,13 @@
 import "dotenv/config";
 import express from "express";
-import { clearAllSessions, clearSession, sendAndWaitForReply } from "./botpress-service.js";
+import {
+  clearAllSessions,
+  clearSession,
+  getSessionCleanupStats,
+  sendAndWaitForReply,
+} from "./botpress-service.js";
 import { processPixelArt } from "./pixel-art.js";
-import { isRateLimited } from "./rate-limiter.js";
+import { getRateLimitCleanupStats, isRateLimited } from "./rate-limiter.js";
 import { ChatRequestSchema } from "./types.js";
 import { parseAndValidate } from "./validator.js";
 
@@ -18,7 +23,13 @@ if (!WEBHOOK_ID) {
 }
 
 app.get("/health", (_req, res) => {
-  res.json({ status: "ok" });
+  res.json({
+    status: "ok",
+    cleanup: {
+      sessions: getSessionCleanupStats(),
+      rateLimits: getRateLimitCleanupStats(),
+    },
+  });
 });
 
 app.post("/chat", async (req, res) => {
