@@ -1,4 +1,4 @@
-package com.botpress.command;
+﻿package com.botpress.command;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.text.Text;
