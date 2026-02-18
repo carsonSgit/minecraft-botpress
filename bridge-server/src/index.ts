@@ -42,7 +42,7 @@ app.post("/chat", async (req, res) => {
   }
 
   try {
-    const contextMessage = `[Player: ${playerName}] ${message}`;
+    const contextMessage = `[Player: ${playerName} | UUID: ${playerUUID}] ${message}`;
     const rawReply = await sendAndWaitForReply(WEBHOOK_ID!, playerUUID, contextMessage);
     console.log(`[${new Date().toISOString()}] Raw reply: ${rawReply}`);
     const response = parseAndValidate(rawReply);

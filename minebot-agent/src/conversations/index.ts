@@ -1,4 +1,7 @@
 import { Conversation, z, adk } from "@botpress/runtime";
+import { PlayerPrefsTable } from "../tables/player-prefs.js";
+import { BuildHistoryTable } from "../tables/build-history.js";
+import MinecraftKB from "../knowledge/minecraft-kb.js";
 
 const ResponseSchema = z.object({
   type: z
@@ -72,10 +75,12 @@ const ResponseSchema = z.object({
 
 const INSTRUCTIONS = `You are MineBot, a helpful Minecraft AI assistant that lives inside the game.
 Your job is to classify player intent and respond with the correct action type.
+You have access to Minecraft knowledge about crafting, mobs, and building.
 
 ## Classification (pick the MOST specific match)
 
 1. **chat** - General questions, greetings, help, conversation, anything not involving commands or building.
+   Use your Minecraft knowledge to give helpful, accurate answers about crafting recipes, mob behavior, building tips, etc.
 
 2. **command** - Player wants a single Minecraft command executed. Allowed vanilla commands:
    - time (e.g. "time set day", "time set 0", "time set night")
@@ -122,7 +127,7 @@ Your job is to classify player intent and respond with the correct action type.
 - Be concise in chat responses.
 - Always pick the most specific type that matches the player's intent.
 - For build requests, infer reasonable dimensions and materials from context.
-- The player message is prefixed with "[Player: name]" - this is just context, respond naturally.
+- The player message is prefixed with "[Player: name | UUID: uuid]" - this is just context, respond naturally.
 - "make it night" or "make it daytime" → type: command
 - "give me diamonds" → type: command
 - "build a house" → type: build
@@ -130,13 +135,129 @@ Your job is to classify player intent and respond with the correct action type.
 - "render pixel art of https://example.com/img.png" → type: pixelart (url from message)
 - "build a castle" → type: worldedit`;
 
+// Parse player UUID from context message format: [Player: name | UUID: uuid]
+function parsePlayerInfo(text: string): { playerName: string; playerUuid: string } | null {
+  const match = text.match(/\[Player:\s*(.+?)\s*\|\s*UUID:\s*(.+?)\]/);
+  if (match) return { playerName: match[1], playerUuid: match[2] };
+  // Fallback to old format without UUID
+  const oldMatch = text.match(/\[Player:\s*(.+?)\]/);
+  if (oldMatch) return { playerName: oldMatch[1], playerUuid: "" };
+  return null;
+}
+
+async function getMemoryContext(playerUuid: string): Promise<string> {
+  if (!playerUuid) return "";
+
+  let context = "";
+
+  try {
+    const prefsResult = await PlayerPrefsTable.findRows({
+      filter: { playerUuid: { $eq: playerUuid } },
+    });
+    if (prefsResult.rows.length > 0) {
+      const prefs = prefsResult.rows[0];
+      context += "\n## Player Memory\n";
+      context += `- Name: ${prefs.playerName}\n`;
+      context += `- Interactions: ${prefs.interactionCount}\n`;
+      if (prefs.preferredMaterial) context += `- Preferred material: ${prefs.preferredMaterial}\n`;
+      if (prefs.preferredStyle) context += `- Preferred style: ${prefs.preferredStyle}\n`;
+      if (prefs.notes) context += `- Notes: ${prefs.notes}\n`;
+    }
+  } catch {
+    // Table may not exist yet on first run
+  }
+
+  try {
+    const historyResult = await BuildHistoryTable.findRows({
+      filter: { playerUuid: { $eq: playerUuid } },
+    });
+    if (historyResult.rows.length > 0) {
+      const recent = historyResult.rows.slice(-5);
+      context += "\n## Recent Build History\n";
+      for (const row of recent) {
+        context += `- [${row.actionType}] "${row.request}" → ${row.responseSummary}\n`;
+      }
+    }
+  } catch {
+    // Table may not exist yet
+  }
+
+  return context;
+}
+
+async function logInteraction(
+  playerUuid: string,
+  playerName: string,
+  request: string,
+  actionType: string,
+  responseSummary: string,
+  commandCount?: number
+): Promise<void> {
+  if (!playerUuid) return;
+
+  try {
+    // Log to build history
+    await BuildHistoryTable.createRows({
+      rows: [
+        {
+          playerUuid,
+          actionType: actionType as "chat" | "command" | "build" | "worldedit" | "pixelart",
+          request,
+          responseSummary,
+          commandCount: commandCount ?? 0,
+          builtAt: new Date().toISOString(),
+        },
+      ],
+    });
+
+    // Upsert player prefs
+    const existing = await PlayerPrefsTable.findRows({
+      filter: { playerUuid: { $eq: playerUuid } },
+    });
+
+    if (existing.rows.length > 0) {
+      const row = existing.rows[0];
+      await PlayerPrefsTable.updateRows({
+        rows: [
+          {
+            id: row.id,
+            playerName,
+            lastSeenAt: new Date().toISOString(),
+            interactionCount: (row.interactionCount ?? 0) + 1,
+          },
+        ],
+      });
+    } else {
+      await PlayerPrefsTable.createRows({
+        rows: [
+          {
+            playerUuid,
+            playerName,
+            lastSeenAt: new Date().toISOString(),
+            interactionCount: 1,
+          },
+        ],
+      });
+    }
+  } catch {
+    // Don't fail the response if logging fails
+  }
+}
+
 export default new Conversation({
   channel: "*",
-  handler: async ({ conversation, message }) => {
+  handler: async ({ conversation, message, execute }) => {
     const playerMessage =
       (message as { payload?: { text?: string } })?.payload?.text ?? "";
 
-    const prompt = `${INSTRUCTIONS}
+    const playerInfo = parsePlayerInfo(playerMessage);
+    const memoryContext = playerInfo?.playerUuid
+      ? await getMemoryContext(playerInfo.playerUuid)
+      : "";
+
+    // For chat-type questions about Minecraft, use execute() with knowledge
+    // For intent classification, use zai.extract() (fast, structured)
+    const prompt = `${INSTRUCTIONS}${memoryContext}
 
 Player message: ${playerMessage}
 
@@ -146,10 +267,13 @@ Classify this player message and generate the appropriate structured response.`;
 
     // Build the response object with only the relevant fields for the type
     let response: Record<string, unknown>;
+    let summary = "";
+    let cmdCount: number | undefined;
 
     switch (result.type) {
       case "command":
         response = { type: "command", command: result.command ?? "" };
+        summary = `Executed: ${result.command ?? ""}`;
         break;
       case "build":
         response = {
@@ -160,6 +284,7 @@ Classify this player message and generate the appropriate structured response.`;
           depth: result.depth ?? 7,
           material: result.material ?? "stone",
         };
+        summary = `Built ${result.structure ?? "cube"} (${result.material ?? "stone"})`;
         break;
       case "worldedit":
         response = {
@@ -167,6 +292,8 @@ Classify this player message and generate the appropriate structured response.`;
           description: result.description ?? "Building...",
           commands: result.commands ?? [],
         };
+        summary = result.description ?? "WorldEdit sequence";
+        cmdCount = (result.commands ?? []).length;
         break;
       case "pixelart":
         response = {
@@ -174,9 +301,11 @@ Classify this player message and generate the appropriate structured response.`;
           url: result.url ?? "",
           ...(result.size ? { size: result.size } : {}),
         };
+        summary = `Pixel art from ${result.url ?? "unknown URL"}`;
         break;
       default:
         response = { type: "chat", text: result.text ?? "I'm not sure how to help with that." };
+        summary = (result.text ?? "").slice(0, 100);
         break;
     }
 
@@ -184,5 +313,18 @@ Classify this player message and generate the appropriate structured response.`;
       type: "text",
       payload: { text: JSON.stringify(response) },
     });
+
+    // Log interaction in background (don't block response)
+    if (playerInfo) {
+      const rawRequest = playerMessage.replace(/\[Player:.*?\]\s*/, "");
+      logInteraction(
+        playerInfo.playerUuid,
+        playerInfo.playerName,
+        rawRequest,
+        result.type,
+        summary,
+        cmdCount
+      );
+    }
   },
 });
