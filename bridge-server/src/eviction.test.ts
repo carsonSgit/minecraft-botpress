@@ -8,8 +8,22 @@ process.env.RATE_LIMIT_TTL_MS = "60000";
 const botpressModule = await import("./botpress-service.js");
 const rateLimitModule = await import("./rate-limiter.js");
 
-const { __sessionInternals, getSessionCleanupStats } = botpressModule;
-const { __rateLimitInternals, isRateLimited, getRateLimitCleanupStats } = rateLimitModule;
+const {
+  __test_clearSessions,
+  __test_getSessionCount,
+  __test_hasSession,
+  __test_runSessionCleanup,
+  __test_seedSession,
+  getSessionCleanupStats,
+} = botpressModule;
+
+const {
+  __test_clearRateLimitEntries,
+  __test_getRateLimitCount,
+  __test_runRateLimitCleanup,
+  getRateLimitCleanupStats,
+  isRateLimited,
+} = rateLimitModule;
 
 function withMockedNow<T>(now: number, fn: () => T): T {
   const originalNow = Date.now;
@@ -22,11 +36,11 @@ function withMockedNow<T>(now: number, fn: () => T): T {
 }
 
 test("evicts oldest sessions when MAX_SESSIONS is exceeded", () => {
-  __sessionInternals.sessions.clear();
+  __test_clearSessions();
   const base = 1_700_000_000_000;
 
   for (let i = 0; i < 200; i += 1) {
-    __sessionInternals.sessions.set(`player-${i}`, {
+    __test_seedSession(`player-${i}`, {
       chatKey: `chat-${i}`,
       conversationId: `conv-${i}`,
       userId: `user-${i}`,
@@ -36,24 +50,24 @@ test("evicts oldest sessions when MAX_SESSIONS is exceeded", () => {
   }
 
   withMockedNow(base + 500, () => {
-    __sessionInternals.cleanupSessions("test");
+    __test_runSessionCleanup();
   });
 
-  assert.equal(__sessionInternals.sessions.size, 100);
-  assert.equal(__sessionInternals.sessions.has("player-0"), false);
-  assert.equal(__sessionInternals.sessions.has("player-99"), false);
-  assert.equal(__sessionInternals.sessions.has("player-100"), true);
-  assert.equal(__sessionInternals.sessions.has("player-199"), true);
+  assert.equal(__test_getSessionCount(), 100);
+  assert.equal(__test_hasSession("player-0"), false);
+  assert.equal(__test_hasSession("player-99"), false);
+  assert.equal(__test_hasSession("player-100"), true);
+  assert.equal(__test_hasSession("player-199"), true);
 
   const stats = getSessionCleanupStats();
   assert.ok(stats.maxEvictions >= 100);
 });
 
 test("evicts stale sessions using SESSION_TTL_MS", () => {
-  __sessionInternals.sessions.clear();
+  __test_clearSessions();
   const base = 1_700_000_000_000;
 
-  __sessionInternals.sessions.set("stale", {
+  __test_seedSession("stale", {
     chatKey: "chat-stale",
     conversationId: "conv-stale",
     userId: "user-stale",
@@ -61,7 +75,7 @@ test("evicts stale sessions using SESSION_TTL_MS", () => {
     lastSeenAt: base,
   });
 
-  __sessionInternals.sessions.set("fresh", {
+  __test_seedSession("fresh", {
     chatKey: "chat-fresh",
     conversationId: "conv-fresh",
     userId: "user-fresh",
@@ -70,15 +84,15 @@ test("evicts stale sessions using SESSION_TTL_MS", () => {
   });
 
   withMockedNow(base + 61_000, () => {
-    __sessionInternals.cleanupSessions("test");
+    __test_runSessionCleanup();
   });
 
-  assert.equal(__sessionInternals.sessions.has("stale"), false);
-  assert.equal(__sessionInternals.sessions.has("fresh"), true);
+  assert.equal(__test_hasSession("stale"), false);
+  assert.equal(__test_hasSession("fresh"), true);
 });
 
 test("evicts stale rate-limit entries for many unique UUIDs", () => {
-  __rateLimitInternals.lastRequest.clear();
+  __test_clearRateLimitEntries();
   const base = 1_700_000_000_000;
 
   withMockedNow(base, () => {
@@ -87,13 +101,13 @@ test("evicts stale rate-limit entries for many unique UUIDs", () => {
     }
   });
 
-  assert.equal(__rateLimitInternals.lastRequest.size, 5000);
+  assert.equal(__test_getRateLimitCount(), 5000);
 
   withMockedNow(base + 61_000, () => {
-    __rateLimitInternals.cleanupRateLimitEntries("test");
+    __test_runRateLimitCleanup();
   });
 
-  assert.equal(__rateLimitInternals.lastRequest.size, 0);
+  assert.equal(__test_getRateLimitCount(), 0);
   const stats = getRateLimitCleanupStats();
   assert.ok(stats.staleEvictions >= 5000);
 });
