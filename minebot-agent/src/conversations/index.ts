@@ -2,7 +2,7 @@ import { adk, Conversation } from "@botpress/runtime";
 import { getMemoryContext, parsePlayerInfo } from "./context.js";
 import { logInteraction } from "./logging.js";
 import { buildExtractionPrompt } from "./prompt.js";
-import { type ResponseResult, ResponseSchema } from "./schema.js";
+import { type ResponseResult, ResponseSchema, type ResponseType } from "./schema.js";
 
 /** Orchestrates parse -> prompt -> zai.extract -> response mapping -> send -> async log. */
 export default new Conversation({
@@ -28,7 +28,7 @@ export default new Conversation({
         playerInfo.playerUuid,
         playerInfo.playerName,
         stripPlayerPrefix(playerMessage),
-        response.type as string,
+        response.type,
         summary,
         commandCount,
       );
@@ -49,7 +49,7 @@ function stripPlayerPrefix(message: string): string {
 }
 
 function mapExtractedResponse(result: ResponseResult): {
-  response: Record<string, unknown> & { type: string };
+  response: Record<string, unknown> & { type: ResponseType };
   summary: string;
   commandCount?: number;
 } {
@@ -96,7 +96,7 @@ function mapExtractedResponse(result: ResponseResult): {
         },
         summary: `Pixel art from ${result.url}`,
       };
-    default:
+    case "chat":
       return {
         response: { type: "chat", text: result.text },
         summary: result.text.slice(0, 100),

@@ -1,12 +1,13 @@
 import { BuildHistoryTable } from "../tables/build-history.js";
 import { PlayerPrefsTable } from "../tables/player-prefs.js";
+import type { ResponseType } from "./schema.js";
 
 /** Persists conversation events to build history and player preference tables. */
 export async function logInteraction(
   playerUuid: string,
   playerName: string,
   request: string,
-  actionType: string,
+  actionType: ResponseType,
   responseSummary: string,
   commandCount?: number,
 ): Promise<void> {
@@ -18,7 +19,7 @@ export async function logInteraction(
       rows: [
         {
           playerUuid,
-          actionType: actionType as "chat" | "command" | "build" | "worldedit" | "pixelart",
+          actionType,
           request,
           responseSummary,
           commandCount: commandCount ?? 0,

@@ -43,3 +43,4 @@ export const ResponseSchema = z.discriminatedUnion("type", [
 ]);
 
 export type ResponseResult = z.infer<typeof ResponseSchema>;
+export type ResponseType = ResponseResult["type"];
