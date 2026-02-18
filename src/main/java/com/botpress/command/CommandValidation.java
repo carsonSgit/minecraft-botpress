@@ -53,6 +53,10 @@ public final class CommandValidation {
 			return "//" + parts[0];
 		}
 
+		if (normalized.startsWith("/")) {
+			normalized = normalized.substring(1);
+		}
+
 		return normalized.split("\\s+")[0];
 	}
 
