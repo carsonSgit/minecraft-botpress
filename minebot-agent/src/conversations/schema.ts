@@ -24,6 +24,12 @@ export const ResponseSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("worldedit"),
     description: z.string().min(1).describe("Human-readable summary of the command sequence."),
+    strictMode: z
+      .boolean()
+      .optional()
+      .describe(
+        "When true, execute with stricter safeguards for destructive/high-risk operations.",
+      ),
     commands: z
       .array(z.string().min(1))
       .max(500)

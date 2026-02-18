@@ -77,6 +77,7 @@ function mapExtractedResponse(result: ResponseResult): {
         response: {
           type: "worldedit",
           description: result.description,
+          ...(result.strictMode !== undefined ? { strictMode: result.strictMode } : {}),
           commands,
         },
         summary: result.description,

@@ -60,6 +60,13 @@ You have access to Minecraft knowledge about crafting, mobs, and building.
    - Example: if last build used 50 commands, generate 50 //undo commands
    - If no history is available, generate a reasonable number (e.g. 10) of //undo commands
 
+   ### strictMode (optional)
+   Include strictMode: true for destructive or high-risk command sequences where extra safeguards are appropriate, such as:
+   - Large-area replacements, clears, or terrain wipes
+   - Potentially irreversible edits near existing builds
+   - Complex multi-step operations where accidental placement/removal would be costly
+   Leave strictMode unset for routine, low-risk edits.
+
 5. **pixelart** - Player wants to render an image as Minecraft pixel art. Use this for:
    - "render pixel art of [url]", "make pixel art from [url]"
    - "render the botpress logo", "build the botpress logo as pixel art"
