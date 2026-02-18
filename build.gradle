@@ -1,6 +1,7 @@
 plugins {
 	id 'net.fabricmc.fabric-loom-remap' version "${loom_version}"
 	id 'maven-publish'
+	id 'com.diffplug.spotless' version '7.0.2'
 }
 
 version = project.mod_version
@@ -77,6 +78,16 @@ jar {
 
 	from("LICENSE") {
 		rename { "${it}_${inputs.properties.archivesName}"}
+	}
+}
+
+spotless {
+	java {
+		target 'src/*/java/**/*.java'
+		eclipse()
+		removeUnusedImports()
+		trimTrailingWhitespace()
+		endWithNewline()
 	}
 }
 
