@@ -4,6 +4,9 @@ export const ChatRequestSchema = z.object({
   playerName: z.string().min(1),
   playerUUID: z.string().min(1),
   message: z.string().min(1).max(500),
+  playerX: z.number().int().optional(),
+  playerY: z.number().int().optional(),
+  playerZ: z.number().int().optional(),
 });
 
 export type ChatRequest = z.infer<typeof ChatRequestSchema>;
@@ -28,7 +31,12 @@ export const ChatResponseSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("worldedit"),
     description: z.string(),
-    commands: z.array(z.string()).min(1).max(200),
+    commands: z.array(z.string()).min(1).max(500),
+  }),
+  z.object({
+    type: z.literal("pixelart"),
+    url: z.string(),
+    size: z.number().int().min(8).max(128).optional(),
   }),
   z.object({
     type: z.literal("error"),

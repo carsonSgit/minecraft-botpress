@@ -26,6 +26,11 @@ export function parseAndValidate(rawText: string): ChatResponse {
 
   const response = result.data;
 
+  // pixelart is handled by the bridge before returning to the mod — no command validation needed
+  if (response.type === "pixelart") {
+    return response;
+  }
+
   if (response.type === "command") {
     if (!isCommandWhitelisted(response.command)) {
       return {

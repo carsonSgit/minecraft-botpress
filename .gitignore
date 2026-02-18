@@ -35,3 +35,9 @@ minebot-agent/.botpress/
 
 # Run directory
 run/
+
+# Windows artifacts
+NUL
+
+# Claude Code
+.claude/settings.local.json

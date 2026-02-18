@@ -8,6 +8,7 @@ import com.google.gson.JsonParser;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
+import net.minecraft.util.math.BlockPos;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -39,6 +40,14 @@ public class HttpBridge {
                 body.addProperty("playerName", playerName);
                 body.addProperty("playerUUID", playerUUID);
                 body.addProperty("message", message);
+
+                MinecraftClient client = MinecraftClient.getInstance();
+                if (client.player != null) {
+                    BlockPos pos = client.player.getBlockPos();
+                    body.addProperty("playerX", pos.getX());
+                    body.addProperty("playerY", pos.getY());
+                    body.addProperty("playerZ", pos.getZ());
+                }
 
                 HttpRequest request = HttpRequest.newBuilder()
                         .uri(URI.create(BRIDGE_CHAT_URL))
