@@ -9,6 +9,23 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CommandValidationTest {
+
+	@Test
+	void validateUsesGeneratedWhitelistForAllowedAndDisallowedCommands() {
+		String allowedBase = GeneratedCommandWhitelist.WHITELISTED_COMMANDS.stream().findFirst().orElseThrow();
+		CommandValidation.ValidatedCommand allowed = CommandValidation.validate(allowedBase + " arg");
+
+		assertTrue(allowed.valid());
+		assertEquals(allowedBase, allowed.baseCommand());
+
+		String disallowedBase = "not-in-generated-whitelist";
+		assertFalse(GeneratedCommandWhitelist.WHITELISTED_COMMANDS.contains(disallowedBase));
+		CommandValidation.ValidatedCommand disallowed = CommandValidation.validate(disallowedBase + " arg");
+
+		assertFalse(disallowed.valid());
+		assertEquals(disallowedBase, disallowed.baseCommand());
+	}
+
 	@Test
 	void validateNormalizesAndAcceptsWhitelistedCommands() {
 		CommandValidation.ValidatedCommand validated = CommandValidation.validate("  //set stone  ");
