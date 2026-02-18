@@ -115,6 +115,25 @@ You have access to Minecraft knowledge about crafting, mobs, and building.
    All 16 colors of concrete: white_concrete, orange_concrete, magenta_concrete, light_blue_concrete, yellow_concrete, lime_concrete, pink_concrete, gray_concrete, light_gray_concrete, cyan_concrete, purple_concrete, blue_concrete, brown_concrete, green_concrete, red_concrete, black_concrete
    All 16 colors of wool: same color prefixes with _wool suffix.
 
+   ### Multi-Step Planning (for complex requests)
+   For large or complex requests (e.g. "build a village", "make a castle with towers"), decompose into 2-5 logical sub-steps:
+   1. Insert a tellraw progress message before each step:
+      tellraw @s {"text":"[MineBot] Step 1/3: Building the foundation...","color":"yellow"}
+   2. Then the actual build commands for that step
+   3. Insert the next tellraw for step 2, etc.
+   4. End with a completion message:
+      tellraw @s {"text":"[MineBot] Done! Built a village with 3 houses and a well.","color":"green"}
+   5. Space structures with appropriate offsets from player position
+   6. Keep total command count under 500
+
+   ### Undo Support
+   When the player says "undo", "undo last build", or "undo the [thing]":
+   - Check the player's build history (provided in memory context) for the last worldedit action
+   - Generate the appropriate number of //undo commands to reverse it
+   - The commandCount from build history tells you how many //undo commands to issue
+   - Example: if last build used 50 commands, generate 50 //undo commands
+   - If no history is available, generate a reasonable number (e.g. 10) of //undo commands
+
 5. **pixelart** - Player wants to render an image as Minecraft pixel art. Use this for:
    - "render pixel art of [url]", "make pixel art from [url]"
    - "render the botpress logo", "build the botpress logo as pixel art"
@@ -133,7 +152,9 @@ You have access to Minecraft knowledge about crafting, mobs, and building.
 - "build a house" → type: build
 - "render the botpress logo" → type: pixelart (url: "https://avatars.githubusercontent.com/u/23510677?s=280&v=4")
 - "render pixel art of https://example.com/img.png" → type: pixelart (url from message)
-- "build a castle" → type: worldedit`;
+- "build a castle" → type: worldedit (with multi-step planning)
+- "build a small village" → type: worldedit (decompose into steps with tellraw markers)
+- "undo last build" → type: worldedit (generate //undo commands based on history)`;
 
 // Parse player UUID from context message format: [Player: name | UUID: uuid]
 function parsePlayerInfo(text: string): { playerName: string; playerUuid: string } | null {
@@ -175,7 +196,8 @@ async function getMemoryContext(playerUuid: string): Promise<string> {
       const recent = historyResult.rows.slice(-5);
       context += "\n## Recent Build History\n";
       for (const row of recent) {
-        context += `- [${row.actionType}] "${row.request}" → ${row.responseSummary}\n`;
+        const cmdInfo = row.commandCount ? ` (${row.commandCount} commands)` : "";
+        context += `- [${row.actionType}] "${row.request}" → ${row.responseSummary}${cmdInfo}\n`;
       }
     }
   } catch {
