@@ -20,17 +20,21 @@ const rateLimitStats: RateLimitStats = {
 };
 
 const cleanupTimer = setInterval(() => {
-  cleanupRateLimitEntries("periodic");
+  cleanupRateLimitEntries();
 }, RATE_LIMIT_CLEANUP_INTERVAL_MS);
 cleanupTimer.unref();
 
 export function isRateLimited(playerUUID: string): boolean {
-  cleanupRateLimitEntries("on_request");
-
   const now = Date.now();
   const entry = lastRequest.get(playerUUID);
-  if (entry && now - entry.lastRequestAt < COOLDOWN_MS) {
-    return true;
+
+  if (entry) {
+    if (isRateLimitEntryStale(entry, now)) {
+      lastRequest.delete(playerUUID);
+      rateLimitStats.staleEvictions += 1;
+    } else if (now - entry.lastRequestAt < COOLDOWN_MS) {
+      return true;
+    }
   }
 
   lastRequest.set(playerUUID, { lastRequestAt: now });
@@ -47,12 +51,12 @@ export function getRateLimitCleanupStats() {
   };
 }
 
-function cleanupRateLimitEntries(_reason: string): void {
+function cleanupRateLimitEntries(): void {
   const now = Date.now();
   let staleEvictions = 0;
 
   for (const [playerUUID, entry] of lastRequest.entries()) {
-    if (now - entry.lastRequestAt > RATE_LIMIT_TTL_MS) {
+    if (isRateLimitEntryStale(entry, now)) {
       lastRequest.delete(playerUUID);
       staleEvictions += 1;
     }
@@ -61,6 +65,10 @@ function cleanupRateLimitEntries(_reason: string): void {
   rateLimitStats.cleanupRuns += 1;
   rateLimitStats.staleEvictions += staleEvictions;
   rateLimitStats.lastCleanupAt = now;
+}
+
+function isRateLimitEntryStale(entry: RateLimitEntry, now: number): boolean {
+  return now - entry.lastRequestAt > RATE_LIMIT_TTL_MS;
 }
 
 function getPositiveIntEnv(name: string, fallback: number): number {
@@ -78,7 +86,15 @@ function getPositiveIntEnv(name: string, fallback: number): number {
   return parsed;
 }
 
-export const __rateLimitInternals = {
-  cleanupRateLimitEntries,
-  lastRequest,
-};
+// Test-only helpers
+export function __test_clearRateLimitEntries(): void {
+  lastRequest.clear();
+}
+
+export function __test_getRateLimitCount(): number {
+  return lastRequest.size;
+}
+
+export function __test_runRateLimitCleanup(): void {
+  cleanupRateLimitEntries();
+}

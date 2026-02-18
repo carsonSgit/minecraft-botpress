@@ -30,7 +30,7 @@ const sessionStats: SessionCleanupStats = {
 
 const SESSION_CLEANUP_INTERVAL_MS = Math.max(1000, Math.floor(SESSION_TTL_MS / 2));
 const cleanupTimer = setInterval(() => {
-  cleanupSessions("periodic");
+  cleanupSessions();
 }, SESSION_CLEANUP_INTERVAL_MS);
 cleanupTimer.unref();
 
@@ -62,12 +62,15 @@ async function chatApi(
 }
 
 export async function getOrCreateSession(webhookId: string, playerUUID: string): Promise<Session> {
-  cleanupSessions("on_get_or_create");
-
   const existing = sessions.get(playerUUID);
   if (existing) {
-    touchSession(playerUUID, existing);
-    return existing;
+    if (isSessionStale(existing, Date.now())) {
+      sessions.delete(playerUUID);
+      sessionStats.staleEvictions += 1;
+    } else {
+      touchSession(playerUUID, existing);
+      return existing;
+    }
   }
 
   // Create user - returns { user, key }
@@ -187,12 +190,12 @@ function touchSession(playerUUID: string, session: Session) {
   sessions.set(playerUUID, session);
 }
 
-function cleanupSessions(_reason: string): void {
+function cleanupSessions(): void {
   const now = Date.now();
   let staleEvictions = 0;
 
   for (const [playerUUID, session] of sessions.entries()) {
-    if (now - session.lastSeenAt > SESSION_TTL_MS) {
+    if (isSessionStale(session, now)) {
       sessions.delete(playerUUID);
       staleEvictions += 1;
     }
@@ -203,6 +206,10 @@ function cleanupSessions(_reason: string): void {
   sessionStats.lastCleanupAt = now;
 
   enforceSessionCap();
+}
+
+function isSessionStale(session: Session, now: number): boolean {
+  return now - session.lastSeenAt > SESSION_TTL_MS;
 }
 
 function enforceSessionCap(): void {
@@ -235,7 +242,23 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-export const __sessionInternals = {
-  cleanupSessions,
-  sessions,
-};
+// Test-only helpers
+export function __test_clearSessions(): void {
+  sessions.clear();
+}
+
+export function __test_seedSession(playerUUID: string, session: Session): void {
+  sessions.set(playerUUID, session);
+}
+
+export function __test_hasSession(playerUUID: string): boolean {
+  return sessions.has(playerUUID);
+}
+
+export function __test_getSessionCount(): number {
+  return sessions.size;
+}
+
+export function __test_runSessionCleanup(): void {
+  cleanupSessions();
+}
