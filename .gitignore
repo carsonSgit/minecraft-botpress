@@ -39,5 +39,14 @@ run/
 # Windows artifacts
 NUL
 
+# Bun
+bun.lockb
+
+# Lefthook
+.lefthook-local.yml
+
+# Minebot agent ADK generated files
+minebot-agent/.adk/
+
 # Claude Code
 .claude/settings.local.json

@@ -1,30 +1,57 @@
-# Automatically build the project and run any configured tests for every push
-# and submitted pull request. This can help catch issues that only occur on
-# certain platforms or Java versions, and provides a first line of defence
-# against bad commits.
+name: CI
 
-name: build
-on: [pull_request, push]
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  build:
-    runs-on: ubuntu-24.04
+  java:
+    name: Java (Fabric Mod)
+    runs-on: ubuntu-latest
     steps:
-      - name: checkout repository
-        uses: actions/checkout@v4
-      - name: validate gradle wrapper
-        uses: gradle/actions/wrapper-validation@v4
-      - name: setup jdk
-        uses: actions/setup-java@v4
+      - uses: actions/checkout@v4
+      - uses: gradle/actions/wrapper-validation@v4
+      - uses: actions/setup-java@v4
         with:
-          java-version: '25'
-          distribution: 'microsoft'
-      - name: make gradle wrapper executable
-        run: chmod +x ./gradlew
-      - name: build
-        run: ./gradlew build
-      - name: capture build artifacts
-        uses: actions/upload-artifact@v4
+          java-version: "21"
+          distribution: "temurin"
+      - uses: gradle/actions/setup-gradle@v4
+      - run: ./gradlew spotlessCheck
+      - run: ./gradlew build
+      - uses: actions/upload-artifact@v4
         with:
-          name: Artifacts
-          path: build/libs/
+          name: fabric-mod
+          path: build/libs/*.jar
+          retention-days: 14
+
+  bridge-server:
+    name: Bridge Server
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install
+        working-directory: bridge-server
+      - run: bunx biome check --config-path=..
+        working-directory: bridge-server
+      - run: bun run typecheck
+        working-directory: bridge-server
+      - run: bun run build
+        working-directory: bridge-server
+
+  minebot-agent:
+    name: Minebot Agent (ADK)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install
+        working-directory: minebot-agent
+      - run: bunx biome check --config-path=..
+        working-directory: minebot-agent
