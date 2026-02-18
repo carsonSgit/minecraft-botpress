@@ -322,14 +322,20 @@ Classify this player message and generate the appropriate structured response.`;
         summary = `Built ${result.structure ?? "cube"} (${result.material ?? "stone"})`;
         break;
       case "worldedit":
+        {
+          const commands = (result.commands ?? [])
+            .map((command) => command.trim())
+            .filter(Boolean)
+            .slice(0, 500);
         response = {
           type: "worldedit",
           description: result.description ?? "Building...",
           ...(result.strictMode !== undefined ? { strictMode: result.strictMode } : {}),
-          commands: result.commands ?? [],
+          commands,
         };
         summary = result.description ?? "WorldEdit sequence";
-        cmdCount = (result.commands ?? []).length;
+          cmdCount = commands.length;
+        }
         break;
       case "pixelart":
         response = {
