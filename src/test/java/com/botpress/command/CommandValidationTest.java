@@ -43,7 +43,6 @@ class CommandValidationTest {
 		assertEquals("<empty>", validated.baseCommand());
 	}
 
-
 	@Test
 	void validateSlashPrefixedTimeCommandMapsToTimeBaseCommand() {
 		CommandValidation.ValidatedCommand validated = CommandValidation.validate("/time set day");
