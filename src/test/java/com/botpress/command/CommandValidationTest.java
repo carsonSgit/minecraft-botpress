@@ -43,6 +43,31 @@ class CommandValidationTest {
 		assertEquals("<empty>", validated.baseCommand());
 	}
 
+
+	@Test
+	void validateSlashPrefixedTimeCommandMapsToTimeBaseCommand() {
+		CommandValidation.ValidatedCommand validated = CommandValidation.validate("/time set day");
+
+		assertTrue(validated.valid());
+		assertEquals("time", validated.baseCommand());
+	}
+
+	@Test
+	void validateWorldEditDoubleSlashCommandKeepsDoubleSlashBaseCommand() {
+		CommandValidation.ValidatedCommand validated = CommandValidation.validate("//set stone");
+
+		assertTrue(validated.valid());
+		assertEquals("//set", validated.baseCommand());
+	}
+
+	@Test
+	void validateRejectsInvalidSlashPrefixedCommand() {
+		CommandValidation.ValidatedCommand validated = CommandValidation.validate("/notallowed");
+
+		assertFalse(validated.valid());
+		assertEquals("notallowed", validated.baseCommand());
+	}
+
 	@Test
 	void strictSequenceRejectsOnFirstInvalidCommand() {
 		List<String> commands = List.of("time set day", "notallowed foo", "weather clear");
