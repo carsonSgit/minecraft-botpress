@@ -24,7 +24,7 @@ MineBot:      [Step 1/3: Building the foundation...]
 ```
 
 1. The **Fabric mod** intercepts `!ai` messages in chat and sends them to the bridge server over HTTP
-2. The **Bridge server** forwards the message to Botpress Cloud via the Chat API and waits for a reply
+2. The **Bridge server** forwards the message to Botpress Cloud via direct Chat API REST calls (`fetch`) and waits for a reply
 3. The **ADK agent** classifies intent (chat, command, build, worldedit, pixelart) and returns structured JSON
 4. The bridge sends the response back to the mod, which executes the appropriate action in-game
 
@@ -137,7 +137,7 @@ This launches Minecraft with the mod loaded. Join any world (singleplayer or ser
 ├── bridge-server/                  # Bridge server (TypeScript)
 │   └── src/
 │       ├── index.ts                #   Express routes
-│       ├── botpress-service.ts     #   Botpress Chat API client
+│       ├── botpress-service.ts     #   Botpress Chat API REST client (fetch)
 │       ├── pixel-art.ts            #   Image-to-setblock converter
 │       ├── rate-limiter.ts         #   Per-player rate limiting
 │       ├── validator.ts            #   Response parsing/validation
