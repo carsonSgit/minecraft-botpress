@@ -18,7 +18,7 @@ public class ChatInterceptor {
     }
 
     private static boolean onChatMessage(String message) {
-        if (!message.startsWith(PREFIX)) {
+        if (!message.startsWith("!ai")) {
             return true;
         }
 
@@ -27,11 +27,27 @@ public class ChatInterceptor {
             return false;
         }
 
-        String query = message.substring(PREFIX.length()).trim();
+        String query = message.length() > PREFIX.length()
+                ? message.substring(PREFIX.length()).trim()
+                : "";
 
         if (query.isEmpty()) {
             client.execute(() -> sendChat(client, Text.literal("[MineBot] ").formatted(Formatting.GOLD)
-                    .append(Text.literal("Usage: !ai <message>").formatted(Formatting.YELLOW))));
+                    .append(Text.literal("Usage: !ai <message>  |  !ai help").formatted(Formatting.YELLOW))));
+            return false;
+        }
+
+        if (query.equalsIgnoreCase("help")) {
+            client.execute(() -> {
+                sendChat(client, Text.literal("[MineBot] ").formatted(Formatting.GOLD)
+                        .append(Text.literal("Available actions:").formatted(Formatting.YELLOW)));
+                sendChat(client, Text.literal("  Chat: ").formatted(Formatting.GOLD)
+                        .append(Text.literal("!ai <question> - Ask me anything").formatted(Formatting.WHITE)));
+                sendChat(client, Text.literal("  Commands: ").formatted(Formatting.GOLD)
+                        .append(Text.literal("!ai make it daytime / give me diamonds").formatted(Formatting.WHITE)));
+                sendChat(client, Text.literal("  Build: ").formatted(Formatting.GOLD)
+                        .append(Text.literal("!ai build a stone house / build a 5x5x5 cube").formatted(Formatting.WHITE)));
+            });
             return false;
         }
 
@@ -48,20 +64,6 @@ public class ChatInterceptor {
             return false;
         }
         lastMessageTime = now;
-
-        if (query.equalsIgnoreCase("help")) {
-            client.execute(() -> {
-                sendChat(client, Text.literal("[MineBot] ").formatted(Formatting.GOLD)
-                        .append(Text.literal("Available actions:").formatted(Formatting.YELLOW)));
-                sendChat(client, Text.literal("  Chat: ").formatted(Formatting.GOLD)
-                        .append(Text.literal("!ai <question> - Ask me anything").formatted(Formatting.WHITE)));
-                sendChat(client, Text.literal("  Commands: ").formatted(Formatting.GOLD)
-                        .append(Text.literal("!ai make it daytime / give me diamonds").formatted(Formatting.WHITE)));
-                sendChat(client, Text.literal("  Build: ").formatted(Formatting.GOLD)
-                        .append(Text.literal("!ai build a stone house / build a 5x5x5 cube").formatted(Formatting.WHITE)));
-            });
-            return false;
-        }
 
         client.execute(() -> sendChat(client, Text.literal("[MineBot] ").formatted(Formatting.GOLD)
                 .append(Text.literal("Thinking...").formatted(Formatting.YELLOW))));
