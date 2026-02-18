@@ -72,7 +72,10 @@ function mapExtractedResponse(result: ResponseResult): {
         summary: `Built ${result.structure ?? "cube"} (${result.material ?? "stone"})`,
       };
     case "worldedit": {
-      const commands = result.commands.slice(0, 500);
+      const commands = result.commands
+        .map((command) => command.trim())
+        .filter(Boolean)
+        .slice(0, 500);
       return {
         response: {
           type: "worldedit",
