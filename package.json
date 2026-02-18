@@ -1,0 +1,14 @@
+{
+  "private": true,
+  "name": "minebot-ai",
+  "scripts": {
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "format": "biome format --write .",
+    "format:check": "biome format ."
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.0.0",
+    "lefthook": "^1.11.0"
+  }
+}

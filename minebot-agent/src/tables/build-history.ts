@@ -7,12 +7,8 @@ export const BuildHistoryTable = new Table({
     actionType: z
       .enum(["chat", "command", "build", "worldedit", "pixelart"])
       .describe("The type of action performed"),
-    request: z
-      .string()
-      .describe("The original player request"),
-    responseSummary: z
-      .string()
-      .describe("Brief summary of what was done"),
+    request: z.string().describe("The original player request"),
+    responseSummary: z.string().describe("Brief summary of what was done"),
     commandCount: z
       .number()
       .int()
