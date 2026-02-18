@@ -2,20 +2,8 @@ package com.botpress.command;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 
 public final class CommandValidation {
-	private static final Set<String> WHITELISTED_COMMANDS = Set.of(
-			// Vanilla
-			"time", "weather", "give", "tp", "gamemode", "difficulty", "effect", "kill", "clear", "summon", "setblock",
-			"fill", "clone", "enchant", "xp", "spawnpoint", "setworldspawn", "playsound", "title", "tellraw",
-			"particle", "locate",
-			// WorldEdit
-			"//set", "//replace", "//walls", "//outline", "//hollow", "//copy", "//paste", "//cut", "//rotate",
-			"//flip", "//stack", "//move", "//undo", "//redo", "//pos1", "//pos2", "//hpos1", "//hpos2", "//expand",
-			"//contract", "//shift", "//cyl", "//hcyl", "//sphere", "//hsphere", "//pyramid", "//hpyramid", "//wand",
-			"//sel", "//line", "//curve", "//drain", "//regen");
-
 	private CommandValidation() {
 	}
 
@@ -27,7 +15,7 @@ public final class CommandValidation {
 		}
 
 		String baseCommand = extractBaseCommand(normalized);
-		if (!WHITELISTED_COMMANDS.contains(baseCommand)) {
+		if (!GeneratedCommandWhitelist.WHITELISTED_COMMANDS.contains(baseCommand)) {
 			return new ValidatedCommand(command, normalized, baseCommand, false,
 					"Command not allowed: /" + baseCommand);
 		}
