@@ -1,4 +1,4 @@
-import { ChatResponseSchema, type ChatResponse } from "./types.js";
+import { type ChatResponse, ChatResponseSchema } from "./types.js";
 import { isCommandWhitelisted, isMaterialValid } from "./whitelist.js";
 
 function stripCodeFences(text: string): string {
@@ -53,7 +53,7 @@ export function parseAndValidate(rawText: string): ChatResponse {
     for (const cmd of response.commands) {
       if (!isCommandWhitelisted(cmd)) {
         const base = cmd.trim().startsWith("//")
-          ? "//" + cmd.trim().substring(2).split(/\s+/)[0]
+          ? `//${cmd.trim().substring(2).split(/\s+/)[0]}`
           : cmd.trim().split(/\s+/)[0];
         return {
           type: "error",

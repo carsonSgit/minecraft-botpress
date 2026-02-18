@@ -1,7 +1,6 @@
-import { Conversation, z, adk } from "@botpress/runtime";
-import { PlayerPrefsTable } from "../tables/player-prefs.js";
+import { adk, Conversation, z } from "@botpress/runtime";
 import { BuildHistoryTable } from "../tables/build-history.js";
-import MinecraftKB from "../knowledge/minecraft-kb.js";
+import { PlayerPrefsTable } from "../tables/player-prefs.js";
 
 const ResponseSchema = z.object({
   type: z
@@ -53,7 +52,9 @@ const ResponseSchema = z.object({
   description: z
     .string()
     .optional()
-    .describe("Required for worldedit type: a short human-readable description of what the commands will do"),
+    .describe(
+      "Required for worldedit type: a short human-readable description of what the commands will do",
+    ),
   commands: z
     .array(z.string())
     .optional()
@@ -213,7 +214,7 @@ async function logInteraction(
   request: string,
   actionType: string,
   responseSummary: string,
-  commandCount?: number
+  commandCount?: number,
 ): Promise<void> {
   if (!playerUuid) return;
 
@@ -268,9 +269,8 @@ async function logInteraction(
 
 export default new Conversation({
   channel: "*",
-  handler: async ({ conversation, message, execute }) => {
-    const playerMessage =
-      (message as { payload?: { text?: string } })?.payload?.text ?? "";
+  handler: async ({ conversation, message }) => {
+    const playerMessage = (message as { payload?: { text?: string } })?.payload?.text ?? "";
 
     const playerInfo = parsePlayerInfo(playerMessage);
     const memoryContext = playerInfo?.playerUuid
@@ -345,7 +345,7 @@ Classify this player message and generate the appropriate structured response.`;
         rawRequest,
         result.type,
         summary,
-        cmdCount
+        cmdCount,
       );
     }
   },

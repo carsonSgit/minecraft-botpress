@@ -36,16 +36,13 @@ async function fetchImage(url: string): Promise<Buffer> {
 
 async function resizeImage(
   buffer: Buffer,
-  maxSize: number
+  maxSize: number,
 ): Promise<{ data: Buffer; width: number; height: number }> {
   const img = sharp(buffer).resize(maxSize, maxSize, {
     fit: "inside",
     withoutEnlargement: true,
   });
-  const { data, info } = await img
-    .removeAlpha()
-    .raw()
-    .toBuffer({ resolveWithObject: true });
+  const { info } = await img.removeAlpha().raw().toBuffer({ resolveWithObject: true });
 
   // Re-process with alpha to detect transparency
   const withAlpha = await sharp(buffer)
@@ -76,11 +73,7 @@ function closestBlock(r: number, g: number, b: number): string {
   return bestName;
 }
 
-function quantizeImage(
-  pixels: Buffer,
-  width: number,
-  height: number
-): (string | null)[][] {
+function quantizeImage(pixels: Buffer, width: number, height: number): (string | null)[][] {
   const grid: (string | null)[][] = [];
   for (let y = 0; y < height; y++) {
     const row: (string | null)[] = [];
@@ -102,7 +95,7 @@ function generateCommands(
   grid: (string | null)[][],
   originX: number,
   originY: number,
-  originZ: number
+  originZ: number,
 ): string[] {
   const commands: string[] = [];
   const height = grid.length;
@@ -133,7 +126,7 @@ function generateCommands(
         commands.push(`setblock ${x1} ${blockY} ${originZ} minecraft:${block}`);
       } else {
         commands.push(
-          `fill ${x1} ${blockY} ${originZ} ${x2} ${blockY} ${originZ} minecraft:${block}`
+          `fill ${x1} ${blockY} ${originZ} ${x2} ${blockY} ${originZ} minecraft:${block}`,
         );
       }
 
@@ -149,7 +142,7 @@ export async function processPixelArt(
   playerX: number,
   playerY: number,
   playerZ: number,
-  maxCommands = 500
+  maxCommands = 500,
 ): Promise<{ description: string; commands: string[] }> {
   const imageBuffer = await fetchImage(url);
 

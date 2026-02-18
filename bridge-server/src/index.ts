@@ -1,16 +1,16 @@
 import "dotenv/config";
 import express from "express";
-import { ChatRequestSchema } from "./types.js";
-import { isRateLimited } from "./rate-limiter.js";
-import { sendAndWaitForReply, clearSession, clearAllSessions } from "./botpress-service.js";
-import { parseAndValidate } from "./validator.js";
+import { clearAllSessions, clearSession, sendAndWaitForReply } from "./botpress-service.js";
 import { processPixelArt } from "./pixel-art.js";
+import { isRateLimited } from "./rate-limiter.js";
+import { ChatRequestSchema } from "./types.js";
+import { parseAndValidate } from "./validator.js";
 
 const app = express();
 app.use(express.json());
 
 const PORT = parseInt(process.env.PORT || "3000", 10);
-const WEBHOOK_ID = process.env.BOTPRESS_WEBHOOK_ID;
+const WEBHOOK_ID = process.env.BOTPRESS_WEBHOOK_ID as string;
 
 if (!WEBHOOK_ID) {
   console.error("BOTPRESS_WEBHOOK_ID is required in .env");
@@ -27,13 +27,15 @@ app.post("/chat", async (req, res) => {
   if (!parsed.success) {
     res.status(400).json({
       type: "error",
-      text: "Invalid request: " + parsed.error.issues[0].message,
+      text: `Invalid request: ${parsed.error.issues[0].message}`,
     });
     return;
   }
 
   const { playerName, playerUUID, message } = parsed.data;
-  console.log(`[${new Date().toISOString()}] POST /chat from ${playerName} (${playerUUID}): "${message}"`);
+  console.log(
+    `[${new Date().toISOString()}] POST /chat from ${playerName} (${playerUUID}): "${message}"`,
+  );
 
   if (isRateLimited(playerUUID)) {
     console.log(`[${new Date().toISOString()}] Rate limited: ${playerUUID}`);
@@ -43,7 +45,7 @@ app.post("/chat", async (req, res) => {
 
   try {
     const contextMessage = `[Player: ${playerName} | UUID: ${playerUUID}] ${message}`;
-    const rawReply = await sendAndWaitForReply(WEBHOOK_ID!, playerUUID, contextMessage);
+    const rawReply = await sendAndWaitForReply(WEBHOOK_ID, playerUUID, contextMessage);
     console.log(`[${new Date().toISOString()}] Raw reply: ${rawReply}`);
     const response = parseAndValidate(rawReply);
 
@@ -56,10 +58,12 @@ app.post("/chat", async (req, res) => {
         playerX ?? 0,
         playerY ?? 64,
         playerZ ?? 0,
-        500
+        500,
       );
       const duration = Date.now() - startTime;
-      console.log(`[${new Date().toISOString()}] Pixel art done (${duration}ms): ${result.commands.length} commands`);
+      console.log(
+        `[${new Date().toISOString()}] Pixel art done (${duration}ms): ${result.commands.length} commands`,
+      );
       res.json({ type: "worldedit", description: result.description, commands: result.commands });
       return;
     }

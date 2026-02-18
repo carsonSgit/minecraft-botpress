@@ -1,4 +1,4 @@
-import { z, defineConfig } from "@botpress/runtime";
+import { defineConfig, z } from "@botpress/runtime";
 
 export default defineConfig({
   name: "minebot-agent",

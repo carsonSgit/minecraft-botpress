@@ -59,8 +59,22 @@ export const WHITELISTED_COMMANDS = new Set([
 ]);
 
 const CONCRETE_COLORS = [
-  "white", "orange", "magenta", "light_blue", "yellow", "lime", "pink",
-  "gray", "light_gray", "cyan", "purple", "blue", "brown", "green", "red", "black",
+  "white",
+  "orange",
+  "magenta",
+  "light_blue",
+  "yellow",
+  "lime",
+  "pink",
+  "gray",
+  "light_gray",
+  "cyan",
+  "purple",
+  "blue",
+  "brown",
+  "green",
+  "red",
+  "black",
 ];
 
 const WOOL_COLORS = CONCRETE_COLORS;
@@ -110,7 +124,7 @@ export function isCommandWhitelisted(command: string): boolean {
 
   // Handle WorldEdit commands starting with //
   if (trimmed.startsWith("//")) {
-    const baseCommand = "//" + trimmed.substring(2).split(/\s+/)[0];
+    const baseCommand = `//${trimmed.substring(2).split(/\s+/)[0]}`;
     return WHITELISTED_COMMANDS.has(baseCommand);
   }
 

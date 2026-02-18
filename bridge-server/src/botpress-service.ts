@@ -37,10 +37,7 @@ async function chatApi(
   return res.json();
 }
 
-export async function getOrCreateSession(
-  webhookId: string,
-  playerUUID: string,
-): Promise<Session> {
+export async function getOrCreateSession(webhookId: string, playerUUID: string): Promise<Session> {
   const existing = sessions.get(playerUUID);
   if (existing) {
     return existing;
@@ -57,8 +54,7 @@ export async function getOrCreateSession(
 
   if (!chatKey) {
     throw new Error(
-      "Botpress createUser did not return a key. Response: " +
-        JSON.stringify(userRes),
+      `Botpress createUser did not return a key. Response: ${JSON.stringify(userRes)}`,
     );
   }
 
@@ -106,11 +102,9 @@ export async function sendAndWaitForReply(
   while (Date.now() - startTime < POLL_TIMEOUT_MS) {
     await sleep(POLL_INTERVAL_MS);
 
-    const listRes = await chatApi(
-      webhookId,
-      `/conversations/${session.conversationId}/messages`,
-      { chatKey: session.chatKey },
-    );
+    const listRes = await chatApi(webhookId, `/conversations/${session.conversationId}/messages`, {
+      chatKey: session.chatKey,
+    });
 
     const messages: Array<{ id: string; userId: string; payload: { text?: string } }> =
       listRes.messages || [];
