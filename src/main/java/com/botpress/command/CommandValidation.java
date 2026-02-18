@@ -22,12 +22,14 @@ public final class CommandValidation {
 	public static ValidatedCommand validate(String command) {
 		String normalized = normalize(command);
 		if (normalized.isEmpty()) {
-			return new ValidatedCommand(command, normalized, "<empty>", false, "Command not allowed: /<empty> (empty command)");
+			return new ValidatedCommand(command, normalized, "<empty>", false,
+					"Command not allowed: /<empty> (empty command)");
 		}
 
 		String baseCommand = extractBaseCommand(normalized);
 		if (!WHITELISTED_COMMANDS.contains(baseCommand)) {
-			return new ValidatedCommand(command, normalized, baseCommand, false, "Command not allowed: /" + baseCommand);
+			return new ValidatedCommand(command, normalized, baseCommand, false,
+					"Command not allowed: /" + baseCommand);
 		}
 
 		return new ValidatedCommand(command, normalized, baseCommand, true, null);
@@ -66,7 +68,8 @@ public final class CommandValidation {
 		return normalized.split("\\s+")[0];
 	}
 
-	public record ValidatedCommand(String raw, String normalized, String baseCommand, boolean valid, String errorMessage) {
+	public record ValidatedCommand(String raw, String normalized, String baseCommand, boolean valid,
+			String errorMessage) {
 	}
 
 	public record SequenceValidationResult(List<ValidatedCommand> validCommands, List<ValidatedCommand> invalidCommands,

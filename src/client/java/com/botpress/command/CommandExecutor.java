@@ -51,7 +51,8 @@ public class CommandExecutor {
 
 	public static void executeSequence(String description, List<String> commands, boolean strictMode) {
 		MinecraftClient client = MinecraftClient.getInstance();
-		CommandValidation.SequenceValidationResult validation = CommandValidation.validateSequence(commands, strictMode);
+		CommandValidation.SequenceValidationResult validation = CommandValidation.validateSequence(commands,
+				strictMode);
 
 		if (!validation.invalidCommands().isEmpty()) {
 			CommandValidation.ValidatedCommand offending = validation.invalidCommands().get(0);
@@ -80,10 +81,9 @@ public class CommandExecutor {
 
 		client.execute(() -> {
 			if (client.player != null) {
-				client.player.sendMessage(
-						Text.literal("[MineBot] ").formatted(Formatting.GOLD)
-								.append(Text.literal(description).formatted(Formatting.YELLOW))
-								.append(Text.literal(" (" + commandsToSchedule.size() + " commands)").formatted(Formatting.GRAY)),
+				client.player.sendMessage(Text.literal("[MineBot] ").formatted(Formatting.GOLD)
+						.append(Text.literal(description).formatted(Formatting.YELLOW)).append(Text
+								.literal(" (" + commandsToSchedule.size() + " commands)").formatted(Formatting.GRAY)),
 						false);
 			}
 		});
