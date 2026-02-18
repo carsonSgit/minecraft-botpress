@@ -5,23 +5,11 @@ import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 public class CommandExecutor {
-	private static final Set<String> WHITELISTED_COMMANDS = Set.of(
-			// Vanilla
-			"time", "weather", "give", "tp", "gamemode", "difficulty", "effect", "kill", "clear", "summon", "setblock",
-			"fill", "clone", "enchant", "xp", "spawnpoint", "setworldspawn", "playsound", "title", "tellraw",
-			"particle", "locate",
-			// WorldEdit
-			"//set", "//replace", "//walls", "//outline", "//hollow", "//copy", "//paste", "//cut", "//rotate",
-			"//flip", "//stack", "//move", "//undo", "//redo", "//pos1", "//pos2", "//hpos1", "//hpos2", "//expand",
-			"//contract", "//shift", "//cyl", "//hcyl", "//sphere", "//hsphere", "//pyramid", "//hpyramid", "//wand",
-			"//sel", "//line", "//curve", "//drain", "//regen");
-
 	private static final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
 		Thread t = new Thread(r, "MineBot-CmdScheduler");
 		t.setDaemon(true);
@@ -30,23 +18,13 @@ public class CommandExecutor {
 
 	public static void execute(String command) {
 		MinecraftClient client = MinecraftClient.getInstance();
+		CommandValidation.ValidatedCommand validatedCommand = CommandValidation.validate(command);
 
-		String trimmed = command.trim();
-		String baseCommand;
-
-		if (trimmed.startsWith("//")) {
-			baseCommand = "//" + trimmed.substring(2).split("\\s+")[0];
-		} else {
-			baseCommand = trimmed.split("\\s+")[0];
-		}
-
-		if (!WHITELISTED_COMMANDS.contains(baseCommand)) {
+		if (!validatedCommand.valid()) {
 			client.execute(() -> {
 				if (client.player != null) {
-					client.player.sendMessage(
-							Text.literal("[MineBot] ").formatted(Formatting.RED).append(
-									Text.literal("Command not allowed: /" + baseCommand).formatted(Formatting.RED)),
-							false);
+					client.player.sendMessage(Text.literal("[MineBot] ").formatted(Formatting.RED)
+							.append(Text.literal(validatedCommand.errorMessage()).formatted(Formatting.RED)), false);
 				}
 			});
 			return;
@@ -57,49 +35,79 @@ public class CommandExecutor {
 				client.player.sendMessage(Text.literal("[MineBot] ").formatted(Formatting.GOLD)
 						.append(Text.literal("Executing: /" + command).formatted(Formatting.YELLOW)), false);
 
-				if (trimmed.startsWith("//")) {
+				if (validatedCommand.normalized().startsWith("//")) {
 					// sendChatCommand adds one /, so pass "/set stone" to get "//set stone"
-					client.getNetworkHandler().sendChatCommand(trimmed.substring(1));
+					client.getNetworkHandler().sendChatCommand(validatedCommand.normalized().substring(1));
 				} else {
-					client.getNetworkHandler().sendChatCommand(trimmed);
+					client.getNetworkHandler().sendChatCommand(validatedCommand.normalized());
 				}
 			}
 		});
 	}
 
 	public static void executeSequence(String description, List<String> commands) {
+		executeSequence(description, commands, false);
+	}
+
+	public static void executeSequence(String description, List<String> commands, boolean strictMode) {
 		MinecraftClient client = MinecraftClient.getInstance();
+		CommandValidation.SequenceValidationResult validation = CommandValidation.validateSequence(commands, strictMode);
+
+		if (!validation.invalidCommands().isEmpty()) {
+			CommandValidation.ValidatedCommand offending = validation.invalidCommands().get(0);
+			client.execute(() -> {
+				if (client.player != null) {
+					if (strictMode) {
+						client.player.sendMessage(Text.literal("[MineBot] ").formatted(Formatting.RED)
+								.append(Text.literal("Strict mode rejected sequence at /" + offending.baseCommand())
+										.formatted(Formatting.RED)),
+								false);
+					} else {
+						client.player.sendMessage(Text.literal("[MineBot] ").formatted(Formatting.RED)
+								.append(Text.literal("Skipping invalid command /" + offending.baseCommand())
+										.formatted(Formatting.RED)),
+								false);
+					}
+				}
+			});
+		}
+
+		if (validation.shouldAbort()) {
+			return;
+		}
+
+		List<CommandValidation.ValidatedCommand> commandsToSchedule = validation.validCommands();
 
 		client.execute(() -> {
 			if (client.player != null) {
 				client.player.sendMessage(
 						Text.literal("[MineBot] ").formatted(Formatting.GOLD)
 								.append(Text.literal(description).formatted(Formatting.YELLOW))
-								.append(Text.literal(" (" + commands.size() + " commands)").formatted(Formatting.GRAY)),
+								.append(Text.literal(" (" + commandsToSchedule.size() + " commands)").formatted(Formatting.GRAY)),
 						false);
 			}
 		});
 
-		for (int i = 0; i < commands.size(); i++) {
-			final String cmd = commands.get(i).trim();
+		for (int i = 0; i < commandsToSchedule.size(); i++) {
+			final CommandValidation.ValidatedCommand cmd = commandsToSchedule.get(i);
 			final int index = i;
 
 			scheduler.schedule(() -> {
 				client.execute(() -> {
 					if (client.player != null && client.getNetworkHandler() != null) {
-						if (cmd.startsWith("//")) {
-							client.getNetworkHandler().sendChatCommand(cmd.substring(1));
+						if (cmd.normalized().startsWith("//")) {
+							client.getNetworkHandler().sendChatCommand(cmd.normalized().substring(1));
 						} else {
-							client.getNetworkHandler().sendChatCommand(cmd);
+							client.getNetworkHandler().sendChatCommand(cmd.normalized());
 						}
 					}
 				});
 
-				if ((index + 1) % 10 == 0 || index == commands.size() - 1) {
+				if ((index + 1) % 10 == 0 || index == commandsToSchedule.size() - 1) {
 					client.execute(() -> {
 						if (client.player != null) {
 							client.player.sendMessage(Text.literal("[MineBot] ").formatted(Formatting.GOLD)
-									.append(Text.literal("Progress: " + (index + 1) + "/" + commands.size())
+									.append(Text.literal("Progress: " + (index + 1) + "/" + commandsToSchedule.size())
 											.formatted(Formatting.GRAY)),
 									false);
 						}
