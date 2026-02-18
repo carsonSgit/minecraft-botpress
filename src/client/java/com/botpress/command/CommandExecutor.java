@@ -20,7 +20,16 @@ public class CommandExecutor {
 		MinecraftClient client = MinecraftClient.getInstance();
 		CommandValidation.ValidatedCommand validatedCommand = CommandValidation.validate(command);
 
-		if (!validatedCommand.valid()) {
+		String trimmed = command.trim();
+		String baseCommand;
+
+		if (trimmed.startsWith("//")) {
+			baseCommand = "//" + trimmed.substring(2).split("\\s+")[0];
+		} else {
+			baseCommand = trimmed.split("\\s+")[0];
+		}
+
+		if (!GeneratedCommandWhitelist.WHITELISTED_COMMANDS.contains(baseCommand)) {
 			client.execute(() -> {
 				if (client.player != null) {
 					client.player.sendMessage(Text.literal("[MineBot] ").formatted(Formatting.RED)

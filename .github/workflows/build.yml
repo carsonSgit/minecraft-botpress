@@ -21,8 +21,12 @@ jobs:
         with:
           java-version: "21"
           distribution: "temurin"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
       - uses: gradle/actions/setup-gradle@v4
       - run: chmod +x ./gradlew
+      - run: ./gradlew checkCommandArtifacts
       - run: ./gradlew spotlessCheck
       - run: ./gradlew build
       - uses: actions/upload-artifact@v4
