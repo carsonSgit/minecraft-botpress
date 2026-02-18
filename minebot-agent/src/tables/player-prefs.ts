@@ -22,7 +22,6 @@ export const PlayerPrefsTable = new Table({
     notes: z
       .string()
       .optional()
-      .searchable()
       .describe("Freeform notes about the player's preferences"),
   },
 });

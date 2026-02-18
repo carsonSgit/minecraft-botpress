@@ -9,7 +9,6 @@ export const BuildHistoryTable = new Table({
       .describe("The type of action performed"),
     request: z
       .string()
-      .searchable()
       .describe("The original player request"),
     responseSummary: z
       .string()
