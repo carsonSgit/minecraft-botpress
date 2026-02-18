@@ -74,7 +74,9 @@ public class HttpBridge {
 						for (int i = 0; i < cmdsArray.size(); i++) {
 							commands.add(cmdsArray.get(i).getAsString());
 						}
-						CommandExecutor.executeSequence(description, commands);
+
+						boolean strictMode = json.has("strictMode") && json.get("strictMode").getAsBoolean();
+						CommandExecutor.executeSequence(description, commands, strictMode);
 					}
 					case "error" -> showError(json.get("text").getAsString());
 					default -> showError("Unknown response type: " + type);
